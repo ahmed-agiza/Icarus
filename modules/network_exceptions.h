@@ -3,11 +3,10 @@
 
 #include <exception>
 
-
 class NetworkException : public std::exception {
 public:
 	virtual const char* what() const throw() {
-		return "Unkown network connection has occured.";
+		return "Unknown network connection has occured.";
 	}
 };
 
