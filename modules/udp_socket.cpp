@@ -11,17 +11,33 @@ int UDPSocket::getFd() const {
   return _socketFd;
 }
 
-ssize_t UDPSocket::sendRaw(char *data, ssize_t length) {
+ssize_t UDPSocket::sendRaw(const char *data, ssize_t length) const {
+  return sendRaw(data, length, _peerAddr);
+}
 
-  return sendto(_socketFd, data, length, 0, (sockaddr *) &_peerAddr, _sinSize);
+ssize_t UDPSocket::sendRaw(const char *data, ssize_t length, const sockaddr_in &destinationAddr) const {
+  return sendto(_socketFd, data, length + 1, 0, (sockaddr *) &destinationAddr, _sinSize);
 }
 
 ssize_t UDPSocket::recvRaw(ssize_t length) {
-  return recvfrom(_socketFd, _readBuff, length, 0, (sockaddr *) &_peerAddr, &_sinSize);
+  return recvRaw(length, _peerAddr);
+}
+
+ssize_t UDPSocket::recvRaw(ssize_t length, sockaddr_in &sourceAddr) {
+  return recvfrom(_socketFd, _readBuff, length, 0, (sockaddr *) &sourceAddr, &_sinSize);
 }
 
 const char *UDPSocket::getReadBuff () const {
   return _readBuff;
+}
+
+const char *UDPSocket::getMessage () {
+  ssize_t recvBytes = recvRaw();
+  if(recvBytes < 0)
+    fprintf(stderr, "%s\n", "An error occured while receiving the message.");
+  char *recvData = new char[recvBytes];
+  strcpy(recvData, getReadBuff());
+  return recvData;
 }
 
 void UDPSocket::closeSocket(){

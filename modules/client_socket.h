@@ -3,7 +3,6 @@
 
 #include "udp_socket.h"
 
-
 class ClientSocket : public UDPSocket {
   public:
     ClientSocket ();

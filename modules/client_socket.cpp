@@ -12,6 +12,8 @@ bool ClientSocket::initializeClient (char * peerName, uint16_t peerPort){
   memcpy((char *)&_peerAddr.sin_addr.s_addr, (char*) serverName->h_addr, serverName->h_length);
   memset(&(_peerAddr.sin_zero), 0, 8);
 }
+
+
 ClientSocket::~ClientSocket (){
 
 }

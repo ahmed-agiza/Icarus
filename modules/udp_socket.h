@@ -10,6 +10,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <ifaddrs.h>
 
 #define READ_BUFFER_MAX 2048
 
@@ -34,11 +35,14 @@ public:
   UDPSocket ();
   int getFd() const;
   const char *getReadBuff () const;
+  const char *getMessage ();
 //     void setFilterAddress (char * _filterAddress);
 //     char * getFilterAddress ();
 
-  ssize_t sendRaw(char *data, ssize_t length);
+  ssize_t sendRaw(const char *data, ssize_t length) const;
+  ssize_t sendRaw(const char *data, ssize_t length, const sockaddr_in &destinationAddr) const;
   ssize_t recvRaw(ssize_t length = READ_BUFFER_MAX);
+  ssize_t recvRaw(ssize_t length, sockaddr_in &sourceAddr);
 //     int writeToSocket (char * buffer, int maxBytes );
 //     int writeToSocketAndWait (char * buffer, int maxBytes,int microSec );
 //     int readFromSocketWithNoBlock (char * buffer, int maxBytes );
