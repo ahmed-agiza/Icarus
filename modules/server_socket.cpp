@@ -25,7 +25,7 @@ uint16_t ServerSocket::initializeServer (const char *peerName){
     perror("getsockname");
     throw "Failed to get client handler socket.";
   }
-  return _hostAddr.sin_port;
+  return ntohs(_hostAddr.sin_port);
 }
 
 
@@ -41,6 +41,9 @@ sockaddr_in ServerSocket::getClientAddress() const {
   return _peerAddr;
 }
 
+void ServerSocket::setClientAddress(sockaddr_in client) {
+  _peerAddr = client;
+}
 
 ServerSocket::~ServerSocket (){
 

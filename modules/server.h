@@ -27,22 +27,15 @@ public:
 
 
   class ClientConnection {
-    Server *_parent;
-    const char* _request;
+    ServerSocket *_socket;
     sockaddr_in _clientAddr;
   public:
-    ClientConnection(Server *parent, const char *request, sockaddr_in clientAddr):_parent(parent), _request(request), _clientAddr(clientAddr){}
+    ClientConnection(ServerSocket *handlerSocket):_socket(handlerSocket), _clientAddr(handlerSocket->getClientAddress()){}
 
-    Server *getServer() const {
-      return _parent;
+    ServerSocket *getSocket() const {
+      return _socket;
     }
 
-    void setRequest(char *request){
-      _request = request;
-    }
-    const char *getRequest() const {
-      return _request;
-    }
 
     void setClientAddr (sockaddr_in clientAddr) {
       _clientAddr = clientAddr;
@@ -53,8 +46,9 @@ public:
     }
 
     ~ClientConnection(){
-      if (_request)
-        delete _request;
+      if(_socket){
+        delete _socket;
+      }
     }
   };
 };

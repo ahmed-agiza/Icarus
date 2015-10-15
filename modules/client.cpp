@@ -28,10 +28,12 @@ void Client::_establishConnection() {
 int Client::start() {
   char tempBuff[2048];
   char terminationString[] = "q";
+  bool success = 1;
   ssize_t sentBytes;
   while(1){
     printf("Enter message to send:\n");
-    scanf("%s", tempBuff);
+    fgets(tempBuff, sizeof tempBuff, stdin);
+    tempBuff[strlen(tempBuff) - 1] = 0;
     printf("Sending %s..\n", tempBuff);
     fflush(stdout);
     sentBytes = _sendMessage(tempBuff);
@@ -41,10 +43,16 @@ int Client::start() {
       break;
     }
 
-    printf("Receiving acknowledgment..\n");
     const char *ack = _getReply();
-    printf("Reply: acknowledgment %s bytes\n", ack);
     delete ack;
+    uint32_t ackNumber = (uint32_t) strtoull(ack, NULL, 0);
+
+    success = (ackNumber == sentBytes);
+
+    if(!success){
+      fprintf(stderr, "Mismatch between acknowledgment and sent bytes.\n");
+    }
+
     printf("Receiving reply..\n");
     const char *reply = _getReply();
     printf("Reply: received %s.\n", reply);

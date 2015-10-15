@@ -9,6 +9,7 @@ public:
   bool initializeServer (uint16_t hostPort);
   uint16_t initializeServer (const char *peerName);
   sockaddr_in getClientAddress() const;
+  void setClientAddress(sockaddr_in client);
   char *getPeerName() const;
   int getPortNumber() const;
    ~ServerSocket ();
