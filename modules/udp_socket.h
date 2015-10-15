@@ -12,6 +12,8 @@
 #include <netdb.h>
 #include <ifaddrs.h>
 
+#include "message.h"
+
 #define READ_BUFFER_MAX 2048
 
 class UDPSocket {
@@ -35,7 +37,8 @@ public:
   UDPSocket ();
   int getFd() const;
   const char *getReadBuff () const;
-  const char *getMessage ();
+  const char *getRawMessage ();
+  Message getMessage();
 //     void setFilterAddress (char * _filterAddress);
 //     char * getFilterAddress ();
 

@@ -12,12 +12,13 @@ bool ServerSocket::initializeServer (uint16_t hostPort){
   bzero(&_hostAddr.sin_zero, 8);
   if(bind(_socketFd, (sockaddr *) &_hostAddr, sizeof(_hostAddr)) == -1)
     throw "Error binding server socket.\n";
+  return 1;
 }
 
 uint16_t ServerSocket::initializeServer (const char *peerName){
   _hostAddr.sin_family = AF_INET;
   _hostAddr.sin_port = 0;
-  _hostAddr.sin_addr.s_addr = /*inet_addr(peerName);*/ INADDR_ANY;
+  _hostAddr.sin_addr.s_addr = inet_addr(peerName);
   bzero(&_hostAddr.sin_zero, 8);
   if(bind(_socketFd, (sockaddr *) &_hostAddr, sizeof(_hostAddr)) == -1)
     throw "Error binding client handler socket.\n";

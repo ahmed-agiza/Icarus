@@ -8,12 +8,16 @@ private:
   ClientSocket * _clientSocket;
   uint16_t _port;
   char _hostname[128];
-  const char * _getReply();
+  const char * _getRawReply();
+  Message _getReply();
   void _establishConnection();
+  ssize_t _sendRawMessage(char * m);
+  ssize_t _sendMessage(Message message);
+  
 public:
   Client(char * hostname, uint16_t port);
   int start();
-  ssize_t _sendMessage(char * m);
+
 
   //Message * execute(Message * _message);
   ~Client();

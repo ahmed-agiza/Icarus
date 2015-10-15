@@ -17,19 +17,19 @@ void *requestHandler(void *connection) {
 
   while(1){
     printf("Listening for client %s..\n", clientAddrName);
-    printf("%s(%d)\n", handlerSocket->getPeerName(), handlerSocket->getPortNumber());
-    const char *request = handlerSocket->getMessage();
-    printf("Request from %s(%d): %s\n", handlerSocket->getPeerName(), handlerSocket->getPortNumber(), request);
+    Message request = handlerSocket->getMessage();
+    printf("Request from %s(%d): %s\n", handlerSocket->getPeerName(), handlerSocket->getPortNumber(), request.getBody());
     fflush(stdout);
-    int ackLen = sprintf(ack, "%d", (int)strlen(request) + 1);
-    ssize_t sendAck = handlerSocket->sendRaw(ack, ackLen);
-    int replySize = sprintf(reply, "You sent: %s", request);
-    handlerSocket->sendRaw(reply, replySize);
-    if(strcmp(request, terminationString) == 0){
-      delete request;
+    int ackLen = sprintf(ack, "%zd", request.getMessagSize());
+    ssize_t sentAck = handlerSocket->sendRaw(ack, ackLen);
+    int replySize = sprintf(reply, "You sent: %s", request.getBody());
+    Message replyMessage(Reply, strlen(reply), reply);
+    const char *replyBytes = replyMessage.getBytes();
+    handlerSocket->sendRaw(replyBytes, strlen(replyBytes));
+    delete replyBytes;
+    if(strcmp(request.getBody(), terminationString) == 0){
       break;
     }
-    delete request;
   }
 
   printf("Done serving %s\n", clientAddrName);
@@ -46,7 +46,7 @@ Server::Server(uint16_t listenPort):_listenPort(listenPort) {
 void Server::listen() {
   while(1){
     printf("Listening..\n");
-    const char *request = _getRequest();
+    const char *request = _getRawRequest();
     printf("Request from %s(%d): %s\n", _serverSocket->getPeerName(), _serverSocket->getPortNumber(), request);
     fflush(stdout);
     serveRequest(request);
@@ -88,9 +88,14 @@ bool Server::_acknowledgeAndWait(const char *request) {
     return true;
 }
 
-const char *Server::_getRequest() {
+const char *Server::_getRawRequest() {
+  return _serverSocket->getRawMessage();
+}
+
+Message Server::_getMessage() {
   return _serverSocket->getMessage();
 }
+
 void Server::_sendReply() {
 
 }

@@ -11,6 +11,7 @@ bool ClientSocket::initializeClient (char * peerName, uint16_t peerPort){
     throw "Failed to resolve hostname.\n";
   memcpy((char *)&_peerAddr.sin_addr.s_addr, (char*) serverName->h_addr, serverName->h_length);
   memset(&(_peerAddr.sin_zero), 0, 8);
+  return 1;
 }
 
 

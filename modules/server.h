@@ -7,7 +7,8 @@ class Server {
 private:
   ServerSocket * _serverSocket;
   uint16_t _listenPort;
-  const char *_getRequest();
+  const char *_getRawRequest();
+  Message _getMessage();
   void _sendReply();
   ssize_t _acknowledge(const char *request);
   bool _acknowledgeAndWait(const char *request);

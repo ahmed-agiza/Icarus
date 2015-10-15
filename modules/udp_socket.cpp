@@ -31,13 +31,17 @@ const char *UDPSocket::getReadBuff () const {
   return _readBuff;
 }
 
-const char *UDPSocket::getMessage () {
+const char *UDPSocket::getRawMessage () {
   ssize_t recvBytes = recvRaw();
   if(recvBytes < 0)
     fprintf(stderr, "%s\n", "An error occured while receiving the message.");
   char *recvData = new char[recvBytes];
   strcpy(recvData, getReadBuff());
   return recvData;
+}
+
+Message UDPSocket::getMessage() {
+  return Message(getRawMessage());
 }
 
 void UDPSocket::closeSocket(){
