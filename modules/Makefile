@@ -6,7 +6,7 @@ DEBUG = -g
 CFLAGS = -Wall -pthread -c $(DEBUG)
 LFLAGS = -Wall -pthread $(DEBUG)
 
-all : server client
+all : clean server client
 
 server : $(SOBJS)
 	$(CC) $(LFLAGS) $(SOBJS) -o server

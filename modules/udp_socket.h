@@ -11,6 +11,8 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <ifaddrs.h>
+#include <time.h>
+#include <errno.h>
 
 #include "message.h"
 
@@ -29,9 +31,11 @@ protected:
   char _readBuff[READ_BUFFER_MAX];
 
   socklen_t _sinSize;
+  struct timeval _sendTimeout;
+  struct timeval _recvTimeout;
 
 //     bool enabled;
-//     pthread_mutex_t mutex;
+  pthread_mutex_t *_lock;
 //
 public:
   UDPSocket ();
@@ -46,6 +50,14 @@ public:
   ssize_t sendRaw(const char *data, ssize_t length, const sockaddr_in &destinationAddr) const;
   ssize_t recvRaw(ssize_t length = READ_BUFFER_MAX);
   ssize_t recvRaw(ssize_t length, sockaddr_in &sourceAddr);
+  void setSendTimeout(time_t seconds = 0, suseconds_t micro = 0);
+  void setRecvTimeout(time_t seconds = 0, suseconds_t micro = 0);
+  void setTimeout(time_t seconds = 0, suseconds_t micro = 0);
+
+  void setMutex(pthread_mutex_t *mutex);
+  void lock();
+  void unlock();
+
 //     int writeToSocket (char * buffer, int maxBytes );
 //     int writeToSocketAndWait (char * buffer, int maxBytes,int microSec );
 //     int readFromSocketWithNoBlock (char * buffer, int maxBytes );
@@ -59,8 +71,7 @@ public:
 //     void enable();
 //     void disable();
 //     bool isEnabled();
-//     void lock();
-//     void unlock();
+
 //     int getSocketHandler();
   void closeSocket();
   ~UDPSocket ();

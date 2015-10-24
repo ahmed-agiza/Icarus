@@ -6,16 +6,17 @@ Message::Message() {
 }
 Message::Message (const char *content) {
     char typeLetter;
+
+    memset(_body, 0, BODY_SIZE);
     sscanf(content, "L %zu T %c B %64999c", &_length, &typeLetter, _body);
 
     if (typeLetter == 'Q')
         setType(Request);
     else if (typeLetter == 'R')
         setType(Reply);
-    else if (typeLetter == 'U'){
+    else {
         setType(Unknown);
-    } else
-        throw "Unknown message type.";
+    }
 }
 
 Message::Message(MessageType type, size_t length, const char *body):_type(type), _length(length) {

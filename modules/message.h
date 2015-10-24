@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define BODY_SIZE 65000
+
 enum MessageType {Request, Reply, Unknown};
 
 class Message {
@@ -12,7 +14,7 @@ private:
     MessageType _type;
     //int operation;
     size_t _length;
-    char _body[65000];
+    char _body[BODY_SIZE];
     //int rpc_id;
 public:
     Message();

@@ -3,6 +3,8 @@
 
 #include "client_socket.h"
 
+#define MAX_RETRY 3
+
 class Client {
 private:
   ClientSocket * _clientSocket;
@@ -13,7 +15,7 @@ private:
   void _establishConnection();
   ssize_t _sendRawMessage(char * m);
   ssize_t _sendMessage(Message message);
-  
+
 public:
   Client(char * hostname, uint16_t port);
   int start();
