@@ -42,7 +42,7 @@ void *requestHandler(void *connection) {
       }
       break;
     }
-
+    
     if(*terminated){
       printf("Closing %lu because of server termination..\n", currentId);
       break;

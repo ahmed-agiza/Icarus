@@ -24,29 +24,29 @@ void Client::_establishConnection() {
   char connectionString[64];
   sprintf(connectionString, "%s:%ld", "127.0.0.1", (long) pid);
 
-  _clientSocket->setTimeout(3, 0);
+  _clientSocket->setTimeout(3, 0); //set timeout to conneting to server
 
   printf("Connecting using %s\n", connectionString);
-  ssize_t sentBytes = _sendRawMessage(connectionString);
+  ssize_t sentBytes = _sendRawMessage(connectionString); //sending to the server for the first time
   if(sentBytes < 0)
     return;
 
-  const char *port = _getRawReply();
+  const char *port = _getRawReply(); //get the port from the server and then re-intialize with the new port
 
   _port = (uint16_t)strtoull(port, NULL, 0);
   printf("Connection port: %u\n", _port);
   delete _clientSocket;
   _clientSocket = new ClientSocket();
   _clientSocket->initializeClient(_hostname, _port);
-  _clientSocket->setRecvTimeout(5, 0);
+  _clientSocket->setRecvTimeout(5, 0); //set timeouts for receiving reply from the server
 }
-
+//start sending messages from client.
 int Client::start() {
-  char tempBuff[2048];
-  char terminationString[] = "q";
+  char tempBuff[2048]; //max char from user input
+  char terminationString[] = "q"; //this terminates the client connection
   char ackBack[2];
-  bool success;
-  ssize_t sentBytes;
+  bool success; //success if message was sent wihtout any packet loss
+  ssize_t sentBytes;  //number of bytes sent to the server
   int retry;
   while(1){
     success = 0;
@@ -55,20 +55,20 @@ int Client::start() {
     fgets(tempBuff, sizeof tempBuff, stdin);
     tempBuff[strlen(tempBuff) - 1] = 0;
 
-    while(!success && retry < MAX_RETRY){
+    while(!success && retry < MAX_RETRY){ //try to re-send packet if failed within MAX_RETRY
         printf("Sending %s..\n", tempBuff);
         fflush(stdout);
 
-        Message requestMessage(Request, strlen(tempBuff), tempBuff);
+        Message requestMessage(Request, strlen(tempBuff), tempBuff); //wrap the text in message form
 
-        sentBytes = _sendMessage(requestMessage);
+        sentBytes = _sendMessage(requestMessage); //send message to server
         if(sentBytes < 0)
           return -1;
         if(strcmp(tempBuff, terminationString) == 0){
           break;
         }
 
-        const char *ack = _getRawReply();
+        const char *ack = _getRawReply(); //get acknowledgment of sending the message from server
         uint32_t ackNumber = (uint32_t) strtoull(ack, NULL, 0);
 
 #ifdef TEST_FAIL
@@ -84,7 +84,7 @@ int Client::start() {
         sprintf(ackBack, "%d", (int) success);
         _sendRawMessage(ackBack);
 
-        if(!success){
+        if(!success){ //packet loss
           fprintf(stderr, "Mismatch between acknowledgment and sent bytes (%d==%d)?.\n", (int)sentBytes, (int) ackNumber);
           retry++;
           if(retry < MAX_RETRY)

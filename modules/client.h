@@ -12,13 +12,13 @@ private:
   char _hostname[128];
   const char * _getRawReply();
   Message _getReply();
-  void _establishConnection();
+  void _establishConnection(); //connect to server
   ssize_t _sendRawMessage(char * m);
   ssize_t _sendMessage(Message message);
 
 public:
   Client(char * hostname, uint16_t port);
-  int start();
+  int start(); //
 
 
   //Message * execute(Message * _message);

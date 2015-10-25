@@ -19,16 +19,17 @@ private:
   //Message * getRequest();
   //Message * doOperation();
   //void sendReply (Message * _message);
-  friend void *requestHandler(void *connection);
+  friend void *requestHandler(void *connection); //this function will handle client requests to connect.
   pthread_mutex_t _terminationLock;
-  bool _terminated;
+  bool _terminated; //used to terminate the server when a client wishes to close connection
 
-  struct hsearch_data _clientsTable;
+  struct hsearch_data _clientsTable; //will store address of clients and ports used
 
   int addClient(char *addr, int port, pthread_t *thread = 0);
   int getClientPort(char *addr);
   int removeClient(char *addr);
 
+  //A client tree structure.
   class ClientNode {
     ClientNode* _next;
     ClientNode* _prev;
@@ -121,6 +122,7 @@ public:
     sockaddr_in _clientAddr;
     void *_shared;
   public:
+    //constructor
     ClientConnection(ServerSocket *handlerSocket):_socket(handlerSocket), _clientAddr(handlerSocket->getClientAddress()){}
 
     ServerSocket *getSocket() const {

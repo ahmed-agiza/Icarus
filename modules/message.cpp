@@ -4,7 +4,7 @@
 Message::Message() {
 
 }
-Message::Message (const char *content) {
+Message::Message (const char *content) { //
     char typeLetter;
 
     memset(_body, 0, BODY_SIZE);
