@@ -5,6 +5,7 @@
 #include <search.h>
 
 #include "server_socket.h"
+#include "job.h"
 
 
 class Server {
@@ -12,6 +13,7 @@ private:
   ServerSocket * _serverSocket;
   uint16_t _listenPort;
   const char *_getRawRequest();
+  const char *_getRawRequestTimeout(time_t seconds = 0, suseconds_t mseconds = 0);
   Message _getMessage();
   void _sendReply();
   ssize_t _acknowledge(const char *request);
@@ -19,23 +21,23 @@ private:
   //Message * getRequest();
   //Message * doOperation();
   //void sendReply (Message * _message);
-  friend void *requestHandler(void *connection);
   pthread_mutex_t _terminationLock;
-  bool _terminated;
+  bool _terminated; //used to terminate the server when a client wishes to close connection
 
-  struct hsearch_data _clientsTable;
+  struct hsearch_data _clientsTable; //will store address of clients and ports used
 
-  int addClient(char *addr, int port, pthread_t *thread = 0);
+  int addClient(char *addr, int port, Job *job = 0);
   int getClientPort(char *addr);
   int removeClient(char *addr);
 
+  //A client tree structure.
   class ClientNode {
     ClientNode* _next;
     ClientNode* _prev;
     char _clientAddr[64];
     char *_nodeKey;
     uint16_t _port;
-    pthread_t *_reponderThread;
+    Job *_reponderJob;
     friend class Server;
   public:
     ClientNode(const char *addr):_next(0),_prev(0),_nodeKey(0){
@@ -58,12 +60,12 @@ private:
       return _nodeKey;
     }
 
-    void setThread(pthread_t *thread) {
-      _reponderThread = thread;
+    void setJob(Job *job) {
+      _reponderJob = job;
     }
 
-    pthread_t *getThread(){
-      return _reponderThread;
+    Job *getJob(){
+      return _reponderJob;
     }
 
     ClientNode *addNext(ClientNode *next) {
@@ -116,39 +118,6 @@ public:
   ~Server();
 
 
-  class ClientConnection {
-    ServerSocket *_socket;
-    sockaddr_in _clientAddr;
-    void *_shared;
-  public:
-    ClientConnection(ServerSocket *handlerSocket):_socket(handlerSocket), _clientAddr(handlerSocket->getClientAddress()){}
 
-    ServerSocket *getSocket() const {
-      return _socket;
-    }
-
-    void setSharedData(void *ptr) {
-      _shared = ptr;
-    }
-
-    void *getSharedData() const {
-      return _shared;
-    }
-
-
-    void setClientAddr (sockaddr_in clientAddr) {
-      _clientAddr = clientAddr;
-    }
-
-    sockaddr_in getClienAddr() const {
-      return _clientAddr;
-    }
-
-    ~ClientConnection(){
-      if(_socket){
-        delete _socket;
-      }
-    }
-  };
 };
 #endif // SERVER_H

@@ -17,9 +17,9 @@ private:
     char _body[BODY_SIZE];
     //int rpc_id;
 public:
-    Message();
-    Message (const char *content);
-    Message(MessageType type, size_t length, const char *body);
+    Message(); //message constructor -empty
+    Message (const char *content); //message constructor with content
+    Message(MessageType type, size_t length, const char *body); //overloading constructor
     const char *getBytes() const;
     size_t getMessagSize() const;
 

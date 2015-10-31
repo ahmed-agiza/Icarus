@@ -7,12 +7,15 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <ifaddrs.h>
 #include <time.h>
 #include <errno.h>
+
+#define TIMEOUT_RC -10
 
 #include "message.h"
 
@@ -28,11 +31,12 @@ protected:
   uint16_t _hostPort;
   uint16_t _peerPort;
 
-  char _readBuff[READ_BUFFER_MAX];
+  char _readBuff[READ_BUFFER_MAX]; // buffer used for receiving messages of size 2048 bytes
 
   socklen_t _sinSize;
-  struct timeval _sendTimeout;
-  struct timeval _recvTimeout;
+  struct timeval _sendTimeout; //the packet sending timeout
+  struct timeval _recvTimeout; //the packet receiving timeout
+  fd_set _rfds;
 
 //     bool enabled;
   pthread_mutex_t *_lock;
@@ -42,17 +46,22 @@ public:
   int getFd() const;
   const char *getReadBuff () const;
   const char *getRawMessage ();
+  const char *getRawMessageTimeout (time_t seconds, suseconds_t mseconds);
   Message getMessage();
+  Message getMessageTimeout(time_t seconds, suseconds_t mseconds);
 //     void setFilterAddress (char * _filterAddress);
 //     char * getFilterAddress ();
 
-  ssize_t sendRaw(const char *data, ssize_t length) const;
-  ssize_t sendRaw(const char *data, ssize_t length, const sockaddr_in &destinationAddr) const;
-  ssize_t recvRaw(ssize_t length = READ_BUFFER_MAX);
-  ssize_t recvRaw(ssize_t length, sockaddr_in &sourceAddr);
+  ssize_t sendRaw(const char *data, ssize_t length) const; //send raw data to the default address (_peerAddr)
+  ssize_t sendRaw(const char *data, ssize_t length, const sockaddr_in &destinationAddr) const; //send raw data to specific address
+  ssize_t recvRaw(ssize_t length = READ_BUFFER_MAX); //receive raw data from the default adress (_peerAddr)
+  ssize_t recvRaw(ssize_t length, sockaddr_in &sourceAddr); //receive raw data from specific adresss
+  ssize_t recvRawTimeout(time_t seconds, suseconds_t mseconds, ssize_t length = READ_BUFFER_MAX);
+
+
   void setSendTimeout(time_t seconds = 0, suseconds_t micro = 0);
   void setRecvTimeout(time_t seconds = 0, suseconds_t micro = 0);
-  void setTimeout(time_t seconds = 0, suseconds_t micro = 0);
+  void setTimeout(time_t seconds = 0, suseconds_t micro = 0); // a function for both receiving and sending timeout
 
   void setMutex(pthread_mutex_t *mutex);
   void lock();

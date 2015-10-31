@@ -11,14 +11,15 @@ private:
   uint16_t _port;
   char _hostname[128];
   const char * _getRawReply();
+  const char * _getRawReplyTimeout(time_t seconds = 0, suseconds_t micro = 0);
   Message _getReply();
-  void _establishConnection();
+  void _establishConnection(); //connect to server
   ssize_t _sendRawMessage(char * m);
   ssize_t _sendMessage(Message message);
 
 public:
   Client(char * hostname, uint16_t port);
-  int start();
+  int start(); //
 
 
   //Message * execute(Message * _message);
