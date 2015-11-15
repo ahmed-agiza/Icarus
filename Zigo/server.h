@@ -4,27 +4,24 @@
 #define __USE_GNU
 #include <search.h>
 
-#include "server_socket.h"
+#include "udp_socket.h"
 #include "job.h"
 
+#define SERVER_REPLY_TO 4
+#define MAX_JOBS 30
 
 class Server {
 private:
-  ServerSocket * _serverSocket;
+  UDPSocket * _serverSocket;
   uint16_t _listenPort;
-  const char *_getRawRequest();
-  const char *_getRawRequestTimeout(time_t seconds = 0, suseconds_t mseconds = 0);
+
+
   Message _getMessage();
+  Message _getMessageTimeout(time_t seconds = 0, suseconds_t mseconds = 0);
   void _sendReply();
-  ssize_t _acknowledge(const char *request);
-  bool _acknowledgeAndWait(const char *request);
-  //Message * getRequest();
-  //Message * doOperation();
-  //void sendReply (Message * _message);
-<<<<<<< HEAD
-  friend void *requestHandler(void *connection); //this function will handle client requests to connect.
-=======
->>>>>>> 1a9a75a381ee2a8b62fdef2bd96b037fa5681c5d
+
+  ssize_t _sendMessage(Message message);
+
   pthread_mutex_t _terminationLock;
   bool _terminated; //used to terminate the server when a client wishes to close connection
 
@@ -114,37 +111,20 @@ private:
   ClientNode *_clientHead;
   ClientNode *_clientTail;
 
+  Job * jobs[MAX_JOBS];
+  size_t _jobCount;
+
 public:
   Server(uint16_t listenPort);
   void listen();
 
-  void serveRequest(const char *request);
+  size_t getJobCount() const;
+
+  void serveRequest(Message &request);
+
   ~Server();
 
 
-<<<<<<< HEAD
-  class ClientConnection {
-    ServerSocket *_socket;
-    sockaddr_in _clientAddr;
-    void *_shared;
-  public:
-    //constructor
-    ClientConnection(ServerSocket *handlerSocket):_socket(handlerSocket), _clientAddr(handlerSocket->getClientAddress()){}
-
-    ServerSocket *getSocket() const {
-      return _socket;
-    }
-
-    void setSharedData(void *ptr) {
-      _shared = ptr;
-    }
-
-    void *getSharedData() const {
-      return _shared;
-    }
-
-=======
->>>>>>> 1a9a75a381ee2a8b62fdef2bd96b037fa5681c5d
 
 };
 #endif // SERVER_H

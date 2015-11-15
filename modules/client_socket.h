@@ -8,5 +8,6 @@ class ClientSocket : public UDPSocket {
     ClientSocket ();
     bool initializeClient (char * peerName, uint16_t peerPort); //initialize client with the peerName and port
     ~ClientSocket();
+    void setPort(uint16_t port);
 };
 #endif // UDPCLIENTSOCKET_H

@@ -27,8 +27,47 @@ ssize_t UDPSocket::recvRaw(ssize_t length, sockaddr_in &sourceAddr) {
   return recvfrom(_socketFd, _readBuff, length + 1, 0, (sockaddr *) &sourceAddr, &_sinSize);
 }
 
+ssize_t UDPSocket::recvRawTimeout(time_t seconds, suseconds_t mseconds, ssize_t length) {
+    FD_ZERO(&_rfds);
+	FD_SET(_socketFd, &_rfds);
+
+	_recvTimeout.tv_sec = seconds;
+	_recvTimeout.tv_usec = mseconds;
+	if (select(_socketFd + 1, &_rfds, NULL, NULL, &_recvTimeout) < 0) {
+        perror("Select error");
+        throw "Receive failed.";
+		exit(1);
+	}
+
+	if (FD_ISSET(_socketFd, &_rfds)) {
+		return recvfrom(_socketFd, _readBuff, length + 1, 0, (sockaddr *) &_peerAddr, &_sinSize);
+	}
+	else {
+        return TIMEOUT_RC;
+    }
+}
+
 const char *UDPSocket::getReadBuff () const {
   return _readBuff;
+}
+
+Message UDPSocket::getMessageTimeout(time_t seconds, suseconds_t mseconds) {
+    return Message(getRawMessageTimeout(seconds, mseconds));
+}
+
+const char *UDPSocket::getRawMessageTimeout (time_t seconds, suseconds_t mseconds) {
+    ssize_t recvBytes = recvRawTimeout(seconds, mseconds);
+    if(recvBytes < 0) {
+       if(errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS)
+          throw "Connection timeout!";
+        if (recvBytes == TIMEOUT_RC)
+            throw "Select timeout!";
+      fprintf(stderr, "%s\n", "An error occured while receiving the message.");
+    }
+    char *recvData = new char[recvBytes + 1];
+    strcpy(recvData, getReadBuff());
+    recvData[recvBytes] = 0;
+    return recvData;
 }
 
 const char *UDPSocket::getRawMessage () {

@@ -14,6 +14,10 @@ bool ClientSocket::initializeClient (char * peerName, uint16_t peerPort){
   return 1;
 }
 
+void ClientSocket::setPort(uint16_t port) {
+    _peerAddr.sin_port = htons(port);
+}
+
 
 ClientSocket::~ClientSocket (){
 

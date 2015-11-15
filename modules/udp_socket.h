@@ -7,12 +7,15 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <ifaddrs.h>
 #include <time.h>
 #include <errno.h>
+
+#define TIMEOUT_RC -10
 
 #include "message.h"
 
@@ -33,6 +36,10 @@ protected:
   socklen_t _sinSize;
   struct timeval _sendTimeout; //the packet sending timeout
   struct timeval _recvTimeout; //the packet receiving timeout
+<<<<<<< HEAD
+=======
+  fd_set _rfds;
+>>>>>>> 1a9a75a381ee2a8b62fdef2bd96b037fa5681c5d
 
 //     bool enabled;
   pthread_mutex_t *_lock;
@@ -42,7 +49,9 @@ public:
   int getFd() const;
   const char *getReadBuff () const;
   const char *getRawMessage ();
+  const char *getRawMessageTimeout (time_t seconds, suseconds_t mseconds);
   Message getMessage();
+  Message getMessageTimeout(time_t seconds, suseconds_t mseconds);
 //     void setFilterAddress (char * _filterAddress);
 //     char * getFilterAddress ();
 
@@ -50,6 +59,12 @@ public:
   ssize_t sendRaw(const char *data, ssize_t length, const sockaddr_in &destinationAddr) const; //send raw data to specific address
   ssize_t recvRaw(ssize_t length = READ_BUFFER_MAX); //receive raw data from the default adress (_peerAddr)
   ssize_t recvRaw(ssize_t length, sockaddr_in &sourceAddr); //receive raw data from specific adresss
+<<<<<<< HEAD
+=======
+  ssize_t recvRawTimeout(time_t seconds, suseconds_t mseconds, ssize_t length = READ_BUFFER_MAX);
+
+
+>>>>>>> 1a9a75a381ee2a8b62fdef2bd96b037fa5681c5d
   void setSendTimeout(time_t seconds = 0, suseconds_t micro = 0);
   void setRecvTimeout(time_t seconds = 0, suseconds_t micro = 0);
   void setTimeout(time_t seconds = 0, suseconds_t micro = 0); // a function for both receiving and sending timeout

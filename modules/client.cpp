@@ -26,19 +26,19 @@ void Client::_establishConnection() {
 
   _clientSocket->setTimeout(3, 0); //set timeout to conneting to server
 
+
   printf("Connecting using %s\n", connectionString);
   ssize_t sentBytes = _sendRawMessage(connectionString); //sending to the server for the first time
   if(sentBytes < 0)
     return;
 
-  const char *port = _getRawReply(); //get the port from the server and then re-intialize with the new port
+
+  const char *port = _getRawReplyTimeout(3, 0); //get the port from the server and then re-intialize with the new port
 
   _port = (uint16_t)strtoull(port, NULL, 0);
   printf("Connection port: %u\n", _port);
-  delete _clientSocket;
-  _clientSocket = new ClientSocket();
-  _clientSocket->initializeClient(_hostname, _port);
-  _clientSocket->setRecvTimeout(5, 0); //set timeouts for receiving reply from the server
+  _clientSocket->setPort(_port);
+//  _clientSocket->setRecvTimeout(5, 0); //set timeouts for receiving reply from the server
 }
 //start sending messages from client.
 int Client::start() {
@@ -68,7 +68,8 @@ int Client::start() {
           break;
         }
 
-        const char *ack = _getRawReply(); //get acknowledgment of sending the message from server
+
+        const char *ack = _getRawReplyTimeout(5, 0); //get acknowledgment of sending the message from server
         uint32_t ackNumber = (uint32_t) strtoull(ack, NULL, 0);
 
 #ifdef TEST_FAIL
@@ -114,6 +115,10 @@ int Client::start() {
 
 const char *Client::_getRawReply() {
   return _clientSocket->getRawMessage();
+}
+
+const char * Client::_getRawReplyTimeout(time_t seconds, suseconds_t micro) {
+  return _clientSocket->getRawMessageTimeout(seconds, micro);
 }
 
 Message Client::_getReply() {

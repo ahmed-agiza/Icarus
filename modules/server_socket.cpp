@@ -18,14 +18,22 @@ bool ServerSocket::initializeServer (uint16_t hostPort){
 uint16_t ServerSocket::initializeServer (const char *peerName){
   _hostAddr.sin_family = AF_INET;
   _hostAddr.sin_port = 0;  //generate a random available port
+<<<<<<< HEAD
   _hostAddr.sin_addr.s_addr = inet_addr(peerName); //receive messages from this address only
+=======
+  _hostAddr.sin_addr.s_addr = INADDR_ANY; //inet_addr(peerName); //receive messages from this address only
+>>>>>>> 1a9a75a381ee2a8b62fdef2bd96b037fa5681c5d
   bzero(&_hostAddr.sin_zero, 8);
   if(bind(_socketFd, (sockaddr *) &_hostAddr, sizeof(_hostAddr)) == -1)
     throw "Error binding client handler socket.\n";
-  if(getsockname(_socketFd, (sockaddr *) &_hostAddr, &_sinSize) == -1){
-    perror("getsockname");
+
+  if(getsockname(_socketFd, (sockaddr *) &_hostAddr, &_sinSize) == -1)
     throw "Failed to get client handler socket.";
+<<<<<<< HEAD
   }
+=======
+
+>>>>>>> 1a9a75a381ee2a8b62fdef2bd96b037fa5681c5d
   return ntohs(_hostAddr.sin_port); //will be sent to the client to start communication at this port
 }
 
