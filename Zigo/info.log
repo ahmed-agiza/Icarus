@@ -1,0 +1,9 @@
+Infromation(2015-11-18 17:39:40): Request from 127.0.0.1(23436): 127.0.0.1:31879
+Infromation(2015-11-18 17:39:40): Serving client 127.0.0.1 from 139873402636032
+Infromation(2015-11-18 17:39:40): Connecting on port: 33743
+Infromation(2015-11-18 17:39:43): Request from 127.0.0.1(23436): Hello!
+Infromation(2015-11-18 17:39:58): Request from 127.0.0.1(23436): Hi again
+Infromation(2015-11-18 17:39:59): Client terminated with code 0.
+Infromation(2015-11-18 17:39:59): Request from 127.0.0.1(23436): q
+Infromation(2015-11-18 17:39:59): Done serving 127.0.0.1(23436)
+Infromation(2015-11-18 17:40:0): Server terminated!

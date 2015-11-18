@@ -8,11 +8,14 @@ int main(int argc, char const *argv[]) {
 
   try {
     Client client(argv[1], 9999);
-    printf("Client terminated with code %d.\n", client.start());
+    int clientRC = client.start();
+    char terminationMessage[LOG_MESSAGE_LENGTH];
+    sprintf(terminationMessage, "Client terminated with code %d.", clientRC);
+    Logger::info(terminationMessage);
   } catch (NetworkException &e){
-    fprintf(stderr, "%s\n", e.what());
+    Logger::error(e.what());
   } catch (const char *e) {
-    fprintf(stderr, "%s\n", e);
+    Logger::error(e);
   }
 
   return 0;

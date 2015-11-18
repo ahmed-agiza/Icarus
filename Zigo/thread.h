@@ -4,12 +4,14 @@
 #include <pthread.h>
 #include <stdio.h>
 
+#include "logger.h"
+
 #define LOCK_FAILED -11
 
 class Thread {
+  bool _running;
   pthread_t *_thread;
   pthread_mutex_t *_lock;
-  bool _running;
   static void *_run(void *thisThread);
 public:
   Thread();

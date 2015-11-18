@@ -1,5 +1,5 @@
-SOBJS = server_main.o thread.o job.o udp_socket.o message.o server.o
-COBJS = client_main.o thread.o udp_socket.o message.o client.o
+SOBJS = server_main.o thread.o job.o udp_socket.o message.o server.o logger.o
+COBJS = client_main.o thread.o udp_socket.o message.o client.o logger.o
 BINARIES = server client
 CC = g++
 DEBUG = -g
@@ -16,6 +16,12 @@ client : $(COBJS)
 
 udp_socket.o : message.o thread.o
 	$(CC) $(LFLAGS) -c udp_socket.cpp
+
+job.o : thread.o
+	$(CC) $(LFLAGS) -c job.cpp
+
+thread.o : logger.o
+	$(CC) $(LFLAGS) -c thread.cpp
 
 message.o : logger.o
 	$(CC) $(LFLAGS) -c message.cpp
