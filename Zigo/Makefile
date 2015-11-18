@@ -17,5 +17,8 @@ client : $(COBJS)
 udp_socket.o : message.o thread.o
 	$(CC) $(LFLAGS) -c udp_socket.cpp
 
+message.o : logger.o
+	$(CC) $(LFLAGS) -c message.cpp
+
 clean:
 	rm -f $(BINARIES) *.o
