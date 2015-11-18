@@ -15,6 +15,8 @@
 #define WRITE_SUCCESS 0
 #define INVALID_LOG_LEVEL -2
 
+#define LOG_STD 1
+
 
 enum LogLevel {
     Verbose = 0,
@@ -26,6 +28,7 @@ enum LogLevel {
 
 class Logger {
     static tm _getCurrentTime();
+    static int _logMessage(char *filePath, char *prefix, char *message);
 public:
     static int info(char *message);
     static int warn(char *message);
