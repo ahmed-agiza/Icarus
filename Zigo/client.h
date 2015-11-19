@@ -19,8 +19,6 @@ private:
 public:
   Client(const char * hostname, uint16_t port);
   int start(); //
-
-
   //Message * execute(Message * _message);
   ~Client();
 };
