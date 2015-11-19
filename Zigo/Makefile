@@ -26,5 +26,8 @@ thread.o : logger.o
 message.o : logger.o
 	$(CC) $(LFLAGS) -c message.cpp
 
+logger.o : settings.o
+	$(CC) $(LFLAGS) -c logger.cpp
+
 clean:
 	rm -f $(BINARIES) *.o

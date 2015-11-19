@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <time.h>
 
+class Settings;
 
 #define LOG_ERROR_PATH "error.log"
 #define LOG_INFO_PATH "info.log"
