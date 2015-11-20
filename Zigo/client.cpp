@@ -19,17 +19,22 @@ void Client::_establishConnection() {
   ssize_t sentBytes = _sendMessage(connectionMessage);
 
   if(sentBytes < 0)
-    return;
+  return;
 
   Message portReply = _getReplyTimeout(CLIENT_REPLY_TO, 0);
   if (portReply.getType() != Accept) {
-      printf("Invalid reply: %s\n", portReply.getBytes());
-      throw InvalidReplyException();
+    char invalidReplyMessage[LOG_MESSAGE_LENGTH];
+    sprintf(invalidReplyMessage, "Invalid reply: %s", portReply.getBytes());
+    Logger::error(invalidReplyMessage);
+    throw InvalidReplyException();
   }
 
 
   _port = (uint16_t)strtoull(portReply.getBody(), NULL, 0);
-  printf("Connection port: %u\n", _port);
+  char connectionPortMessage[LOG_MESSAGE_LENGTH];
+  sprintf(connectionPortMessage, "Connecting on port: %u", _port);
+  Logger::info(connectionPortMessage);
+
   _clientSocket->setPort(_port);
 
 }
@@ -51,42 +56,49 @@ int Client::start() {
     tempBuff[strlen(tempBuff) - 1] = 0;
 
     while(!success && retry < MAX_RETRY){ //try to re-send packet if failed within MAX_RETRY
-        printf("Sending %s..\n", tempBuff);
-        fflush(stdout);
+      printf("Sending %s..\n", tempBuff);
+      fflush(stdout);
 
-        requestMessage = Message(Request, tempBuff); //wrap the text in message form
+      requestMessage = Message(Request, tempBuff); //wrap the text in message form
 
-        sentBytes = _sendMessage(requestMessage); //send message to server
+      sentBytes = _sendMessage(requestMessage); //send message to server
 
-        if(sentBytes < 0)
-          return -1;
-        if(requestMessage.isTerminationMessage()){
-          break;
+      if(sentBytes < 0)
+      return -1;
+      if(requestMessage.isTerminationMessage()){
+        break;
+      }
+
+      Message ackReply = _getReplyTimeout(CLIENT_REPLY_TO, 0);
+
+      if (ackReply.getType() != Acknowledge) {
+        char invalidReplyMessage[LOG_MESSAGE_LENGTH];
+        sprintf(invalidReplyMessage, "Invalid reply: %s", ackReply.getBytes());
+        Logger::error(invalidReplyMessage);
+        throw InvalidReplyException();
+      }
+
+      uint32_t ackNumber = (uint32_t) strtoull(ackReply.getBody(), NULL, 0);
+
+      success = (ackNumber == sentBytes);
+
+
+      sprintf(ackBack, "%d", (int) success);
+      Message ackBackReply(Acknowledge, ackBack);
+
+      sentAckBytes = _sendMessage(ackBackReply);
+
+      if(!success){ //packet loss
+        char misacknowledgmentMessage[LOG_MESSAGE_LENGTH];
+        sprintf(misacknowledgmentMessage, "Mismatch between acknowledgment and sent bytes (%d==%d)?.", (int)sentBytes, (int) ackNumber);
+        Logger::error(misacknowledgmentMessage);
+        retry++;
+        if(retry < MAX_RETRY){
+          char retryMessage[LOG_MESSAGE_LENGTH];
+          sprintf(retryMessage, "Retrying to send the message(%d)..", retry);
+          Logger::warn(retryMessage);
         }
-
-        Message ackReply = _getReplyTimeout(CLIENT_REPLY_TO, 0);
-
-        if (ackReply.getType() != Acknowledge) {
-            printf("Invalid reply: %s\n", ackReply.getBytes());
-            throw InvalidReplyException();
-        }
-
-        uint32_t ackNumber = (uint32_t) strtoull(ackReply.getBody(), NULL, 0);
-
-        success = (ackNumber == sentBytes);
-
-
-        sprintf(ackBack, "%d", (int) success);
-        Message ackBackReply(Acknowledge, ackBack);
-
-        sentAckBytes = _sendMessage(ackBackReply);
-
-        if(!success){ //packet loss
-          fprintf(stderr, "Mismatch between acknowledgment and sent bytes (%d==%d)?.\n", (int)sentBytes, (int) ackNumber);
-          retry++;
-          if(retry < MAX_RETRY)
-            printf("Retrying to send the message(%d)..\n", retry);
-        }
+      }
     }
 
     if(requestMessage.isTerminationMessage()){
@@ -94,8 +106,8 @@ int Client::start() {
     }
 
     if(!success){
-        fprintf(stderr, "Failed to deliver your message.\n");
-        continue;
+      Logger::error("Failed to deliver your message.");
+      continue;
     }
 
 
@@ -103,8 +115,10 @@ int Client::start() {
     printf("Receiving reply..\n");
     Message replyMessage = _getReplyTimeout(CLIENT_REPLY_TO, 0);
     if (replyMessage.getType() != Reply) {
-        printf("Invalid reply: %s\n", replyMessage.getBytes());
-        throw InvalidReplyException();
+      char invalidReplyMessage[LOG_MESSAGE_LENGTH];
+      sprintf(invalidReplyMessage, "Invalid reply: %s", replyMessage.getBytes());
+      Logger::error(invalidReplyMessage);
+      throw InvalidReplyException();
     }
     const char *reply = replyMessage.getBody();
     printf("Reply: \"%s\"\n", reply);

@@ -11,7 +11,9 @@ Message::Message (const char *content) {
   memset(_body, 0, MAX_READ_SIZE);
   int readValues = sscanf(content, "L %zu T %c B %64999c", &_length, &typeLetter, _body);
   if (readValues < 3) {
-    fprintf(stderr, "Invalid message format(%d).\n", readValues);
+    char invalidFormatMessage[LOG_MESSAGE_LENGTH];
+    sprintf(invalidFormatMessage, "Invalid message format(%d).", readValues);
+    Logger::error(invalidFormatMessage);
     _valid = false;
     setType(Unknown);
   } else{

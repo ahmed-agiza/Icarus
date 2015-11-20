@@ -20,7 +20,8 @@ Settings& Settings::getInstance(){
 void Settings::_initialize(){
   FILE *settingsFile = fopen(FILE_LOCATION, "r");
   if(!settingsFile){
-    printf("Couldn't open file.\n");
+    Logger::error("Failed to open settings file.");
+    throw SettingsLoadException();
     return;
   }
   char buffer[50];
@@ -29,23 +30,26 @@ void Settings::_initialize(){
 
   while((i = fscanf(settingsFile, "%[^=]=%s\n", buffer, value)) != EOF){
     if(i < 2){
-      printf("Failed to getline. %s=%s\n", buffer, value);
+      char getlineErrorMessage[LOG_MESSAGE_LENGTH];
+      sprintf(getlineErrorMessage, "Failed to getline. %s=%s\n", buffer, value);
+      Logger::error(getlineErrorMessage);
+      throw InvalidOptionException();
       break;
     }
     if(strcmp(BUFFER_SIZE, buffer) == 0)
-      _msgBufferSize = atoi(value);
+    _msgBufferSize = atoi(value);
     else if(strcmp(REPLY_TIMEOUT, buffer) == 0)
-      _replyTimeOut = atof(value);
+    _replyTimeOut = atof(value);
     else if(strcmp(RCV_MSG_TIMEOUT, buffer) == 0)
-      _rcvMsgTimeOut = atof(value);
+    _rcvMsgTimeOut = atof(value);
     else if(strcmp(SEND_MSG_TIMEOUT, buffer) == 0)
-      _sendMsgTimeOut = atof(value);
+    _sendMsgTimeOut = atof(value);
     else if(strcmp(MAX_RETRY, buffer) == 0)
-      _maxRetry = atoi(value);
+    _maxRetry = atoi(value);
     else if(strcmp(THREAD_POOL, buffer) == 0)
-      _threadPool = atoi(value);
+    _threadPool = atoi(value);
     else
-      printf("Failed to parse. %s\n", buffer);
+    printf("Failed to parse. %s\n", buffer);
   }
 }
 

@@ -10,7 +10,7 @@ int Thread::start() {
     int rc = pthread_create(_thread, 0, _run, (void *) this);
     return !rc;
   } else {
-    printf("Already running..\n");
+    Logger::warn("Thread is already running..");
   }
   return -1;
 }

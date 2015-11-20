@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "logger.h"
+
 #define MAX_READ_SIZE 65000
 
 enum MessageType {

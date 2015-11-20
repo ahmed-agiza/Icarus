@@ -10,6 +10,21 @@ public:
 	}
 };
 
+class SettingsLoadException : public NetworkException {
+public:
+	virtual const char* what() const throw() {
+		return "Failed to load settings file.";
+	}
+};
+
+class InvalidOptionException : public NetworkException {
+public:
+	virtual const char* what() const throw() {
+		return "Invalid option in settings file.";
+	}
+};
+
+
 class HostnameException : public NetworkException {
 public:
 	virtual const char* what() const throw() {

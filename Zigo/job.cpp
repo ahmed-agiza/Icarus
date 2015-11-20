@@ -14,13 +14,12 @@ void Job::run() {
   char *clientAddrName = (char *)inet_ntoa(clientAddr.sin_addr);
 
   pthread_t currentId = pthread_self();
-  printf("Serving client %s from %lu\n", clientAddrName, currentId);
-
+  char servingMessage[50];
+  sprintf(servingMessage, "Serving client %s from %lu", clientAddrName, currentId);
+  Logger::info(servingMessage);
   //handlerSocket->setRecvTimeout(2, 0);
   char reply[2048];
   char ack[32];
-  char terminationString[] = "q";
-  char ackSuccess[] = "1";
   bool *terminated = (bool*) getSharedData();
   while(1){
     Message request;
@@ -38,15 +37,21 @@ void Job::run() {
     }
 
     if(*terminated){
-      printf("Closing %lu because of server termination..\n", currentId);
+      char serverTerminationMessage[LOG_MESSAGE_LENGTH];
+      sprintf(serverTerminationMessage, "Closing %lu because of server termination..", currentId);
+      Logger::info(serverTerminationMessage);
       break;
     }
 
-    printf("Request from %s(%d): %s\n", handlerSocket->getPeerName(), handlerSocket->getPortNumber(), request.getBody());
+    char newConnectionMessage[LOG_MESSAGE_LENGTH];
+    sprintf(newConnectionMessage, "Request from %s(%d): %s", handlerSocket->getPeerName(), handlerSocket->getPortNumber(), request.getBody());
+    Logger::info(newConnectionMessage);
     fflush(stdout);
 
-    if(request.getType() != Request){
-      fprintf(stderr, "Invalid message type...\n\n\n%s", request.getBytes());
+    if(request.getType() != Request) {
+      char invalidRequestMessage[LOG_MESSAGE_LENGTH];
+      sprintf(invalidRequestMessage, "Invalid request type: %s", request.getBytes());
+      Logger::error(invalidRequestMessage);
       continue;
     }
 
@@ -61,27 +66,37 @@ void Job::run() {
     }
 
     int ackLen = sprintf(ack, "%zd", request.getMessagSize());
+    (void)ackLen;
 
     Message ackReply(Acknowledge, ack);
     ssize_t sentAck = handlerSocket->sendMessage(ackReply);
+    (void)sentAck;
 
     Message ackBack = handlerSocket->recvMessage();
 
     if (ackBack.getType() != Acknowledge) {
-      fprintf(stderr, "Invalid message type--.\n%s", ackBack.getBody());
+      char invalidReplyMessage[LOG_MESSAGE_LENGTH];
+      sprintf(invalidReplyMessage, "Invalid message type: %s", ackBack.getBytes());
+      Logger::error(invalidReplyMessage);
       continue;
     }
     if(!ackBack.isAcknowledgeSuccess()){
-        fprintf(stderr, "Failed acknowledgment %s.\n", ackBack.getBytes());
-        continue;
+      char misacknowledgmentMessage[LOG_MESSAGE_LENGTH];
+      sprintf(misacknowledgmentMessage, "Failed acknowledgment %s.", ackBack.getBytes());
+      Logger::error(misacknowledgmentMessage);
+      continue;
     }
 
     int replySize = sprintf(reply, "You sent: %s", request.getBody());
+    (void)replySize;
+
     Message replyMessage(Reply, reply);
     handlerSocket->sendMessage(replyMessage);
   }
-  printf("Done serving %s(%d)\n", handlerSocket->getPeerName(), handlerSocket->getPortNumber());
 
+  char servingDoneMessage[LOG_MESSAGE_LENGTH];
+  sprintf(servingDoneMessage, "Done serving %s(%d)", handlerSocket->getPeerName(), handlerSocket->getPortNumber());
+  Logger::info(servingDoneMessage);
 
   handlerSocket->unlock();
 }

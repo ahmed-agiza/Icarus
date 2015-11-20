@@ -6,6 +6,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <stdint.h>
+#include "network_exceptions.h"
+#include "logger.h"
 
 #define FILE_LOCATION     "../sample_settings.txt"
 //options

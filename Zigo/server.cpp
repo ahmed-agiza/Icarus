@@ -26,7 +26,9 @@ void Server::listen() {
         }
         request = _getMessageTimeout(SERVER_REPLY_TO, 0);
         if (request.getType() != Connect) {
-          fprintf(stderr, "Invalid request %s\n", request.getBody());
+          char invalidRequestMessage[LOG_MESSAGE_LENGTH];
+          sprintf(invalidRequestMessage, "Invalid request %s", request.getBody());
+          Logger::error(invalidRequestMessage);
           continue;
         }
       } catch (ReceiveTimeoutException &timeout) {
@@ -39,11 +41,13 @@ void Server::listen() {
       break;
     }
 
-    printf("Request from %s(%d): %s\n", _serverSocket->getPeerName(), _serverSocket->getPortNumber(), request.getBody());
+    char newRequestMessage[LOG_MESSAGE_LENGTH];
+    sprintf(newRequestMessage, "Request from %s(%d): %s", _serverSocket->getPeerName(), _serverSocket->getPortNumber(), request.getBody());
+    Logger::info(newRequestMessage);
     fflush(stdout);
     serveRequest(request);
   }
-  printf("Server terminated!\n");
+  Logger::info("Server terminated!");
 }
 
 void Server::serveRequest(Message  &request) {
@@ -57,7 +61,9 @@ void Server::serveRequest(Message  &request) {
   int checkPort = getClientPort(connectionStr);
 
   if (checkPort > -1) {
-    printf("Connection %s already exists on port %d\n", connectionStr, checkPort);
+    char portExistsMessage[LOG_MESSAGE_LENGTH];
+    sprintf(portExistsMessage, "Connection %s already exists on port %d", connectionStr, checkPort);
+    Logger::warn(portExistsMessage);
     sprintf(portReply, "%u", checkPort);
     Message portReplyMessage(Accept, portReply);
     _sendMessage(portReplyMessage);
@@ -78,7 +84,7 @@ void Server::serveRequest(Message  &request) {
       addClient(connectionStr, clientPort, job);
       printf("Serving client..\n");
     } else {
-      fprintf(stderr, "Failed to create the server thread.\n");
+      Logger::error("Failed to create the server thread.");
     }
   }
 
