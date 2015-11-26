@@ -1,8 +1,0 @@
-Infromation(2015-11-26 19:19:44): Request from 127.0.0.1(57515): 127.0.0.1:27251
-Infromation(2015-11-26 19:19:44): Serving client 127.0.0.1 from 140663565674240
-Infromation(2015-11-26 19:19:44): Connecting on port: 34120
-Infromation(2015-11-26 19:19:45): Request from 127.0.0.1(57515): Hello
-Infromation(2015-11-26 19:19:46): Client terminated with code 0.
-Infromation(2015-11-26 19:19:46): Request from 127.0.0.1(57515): q
-Infromation(2015-11-26 19:19:46): Done serving 127.0.0.1(57515)
-Infromation(2015-11-26 19:19:48): Server terminated!
