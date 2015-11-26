@@ -1,36 +1,65 @@
-SOBJS = server_main.o thread.o thread_pool.o job.o udp_socket.o message.o server.o logger.o
-COBJS = client_main.o thread.o thread_pool.o udp_socket.o message.o client.o logger.o
-BINARIES = server client
+BUILD_DIR = ./build
+SRC_DIR = ./src
+INCLUDE_DIR = ./include
+OBJ_DIR = ./obj
+INCLUDE = -I$(INCLUDE_DIR)/
+
+SOBJS = \
+ $(OBJ_DIR)/thread.o\
+ $(OBJ_DIR)/thread_pool.o\
+ $(OBJ_DIR)/job.o\
+ $(OBJ_DIR)/udp_socket.o\
+ $(OBJ_DIR)/message.o\
+ $(OBJ_DIR)/server.o\
+ $(OBJ_DIR)/logger.o\
+ $(OBJ_DIR)/settings.o\
+ $(OBJ_DIR)/server_main.o
+
+COBJS = \
+ $(OBJ_DIR)/thread.o\
+ $(OBJ_DIR)/thread_pool.o\
+ $(OBJ_DIR)/udp_socket.o\
+ $(OBJ_DIR)/message.o\
+ $(OBJ_DIR)/client.o\
+ $(OBJ_DIR)/logger.o\
+ $(OBJ_DIR)/settings.o\
+ $(OBJ_DIR)/client_main.o
+
+BINARIES = $(BUILD_DIR)/server $(BUILD_DIR)/client
 CC = g++
 DEBUG = -g
-CFLAGS = -Wall -pthread -c $(DEBUG)
-LFLAGS = -Wall -pthread $(DEBUG)
+LIBS = -pthread
+CFLAGS = -Wall $(INCLUDE) $(LIBS) -c $(DEBUG)
+LFLAGS = -Wall $(INCLUDE) $(LIBS) $(DEBUG)
 
 all : clean server client
 
 server : $(SOBJS)
-	$(CC) $(LFLAGS) $(SOBJS) -o server
+	$(CC) $(LFLAGS) $(SOBJS) -o $(BUILD_DIR)/server
 
 client : $(COBJS)
-	$(CC) $(LFLAGS) $(COBJS) -o client
+	$(CC) $(LFLAGS) $(COBJS) -o $(BUILD_DIR)/client
 
-udp_socket.o : message.o thread.o
-	$(CC) $(LFLAGS) -c udp_socket.cpp
+$(OBJ_DIR)/udp_socket.o : $(OBJ_DIR)/message.o $(OBJ_DIR)/thread.o
+	$(CC) $(LFLAGS) -c $(SRC_DIR)/udp_socket.cpp -o $(OBJ_DIR)/udp_socket.o
 
-job.o : thread.o
-	$(CC) $(LFLAGS) -c job.cpp
+$(OBJ_DIR)/job.o : $(OBJ_DIR)/thread.o
+	$(CC) $(LFLAGS) -c $(SRC_DIR)/job.cpp -o $(OBJ_DIR)/job.o
 
-thread.o : logger.o
-	$(CC) $(LFLAGS) -c thread.cpp
+$(OBJ_DIR)/thread.o : $(OBJ_DIR)/logger.o
+	$(CC) $(LFLAGS) -c $(SRC_DIR)/thread.cpp -o $(OBJ_DIR)/thread.o
 
-thread_pool.o : thread.o logger.o
-	$(CC) $(LFLAGS) -c thread_pool.cpp
+$(OBJ_DIR)/thread_pool.o : $(OBJ_DIR)/thread.o $(OBJ_DIR)/logger.o
+	$(CC) $(LFLAGS) -c $(SRC_DIR)/thread_pool.cpp -o $(OBJ_DIR)/thread_pool.o
 
-message.o : logger.o
-	$(CC) $(LFLAGS) -c message.cpp
+$(OBJ_DIR)/message.o : $(OBJ_DIR)/logger.o
+	$(CC) $(LFLAGS) -c $(SRC_DIR)/message.cpp -o $(OBJ_DIR)/logger.o
 
-logger.o : settings.o
-	$(CC) $(LFLAGS) -c logger.cpp
+$(OBJ_DIR)/logger.o : $(OBJ_DIR)/settings.o
+	$(CC) $(LFLAGS) -c $(SRC_DIR)/logger.cpp -o $(OBJ_DIR)/message.o
+
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
+	$(CC) -c $< -o $@ $(LFLAGS)
 
 clean:
-	rm -f $(BINARIES) *.o
+	rm -f $(BINARIES) *.o $(BUILD_DIR)/*.o $(OBJ_DIR)/*.o

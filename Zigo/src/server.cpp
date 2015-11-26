@@ -52,6 +52,7 @@ void Server::serveRequest(Message  &request) {
   char portReply[32];
 
   char *clientAddrName = (char *)inet_ntoa(_serverSocket->getPeerAddress().sin_addr);
+  (void)clientAddrName;
 
   char *connectionStr = new char[strlen(request.getBody()) + 1];
   strcpy(connectionStr, request.getBody());
@@ -168,7 +169,7 @@ Message Server::_getMessage() {
 }
 
 ssize_t Server::_sendMessage(Message message){
-  _serverSocket->sendMessage(message);
+  return _serverSocket->sendMessage(message);
 }
 
 void Server::_sendReply() {

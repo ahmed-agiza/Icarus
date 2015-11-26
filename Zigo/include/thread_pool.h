@@ -24,7 +24,7 @@ public:
     _availableThreads = 0;
     _usedThreads = 0;
     _poolSize = size;
-    for(int i = 0; i < _poolSize; i++) {
+    for(size_t i = 0; i < _poolSize; i++) {
       if(defaultVal)
         _threadQueue.push(new ThreadType(*defaultVal));
       else

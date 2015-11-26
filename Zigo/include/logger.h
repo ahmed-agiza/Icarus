@@ -9,8 +9,8 @@
 
 class Settings;
 
-#define LOG_ERROR_PATH "error.log"
-#define LOG_INFO_PATH "info.log"
+#define LOG_ERROR_PATH "../log/error.log"
+#define LOG_INFO_PATH "../log/info.log"
 
 #define LOG_MESSAGE_LENGTH 100
 

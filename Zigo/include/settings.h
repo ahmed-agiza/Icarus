@@ -11,7 +11,7 @@
 #include "network_exceptions.h"
 #include "logger.h"
 
-#define FILE_LOCATION     "../sample_settings.txt"
+#define FILE_LOCATION     "../config"
 //options
 #define BUFFER_SIZE       "MESSAGE_BUFFER_SIZE"
 #define REPLY_TIMEOUT     "REPLY_TIMEOUT"
