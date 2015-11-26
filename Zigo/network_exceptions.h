@@ -17,6 +17,14 @@ public:
 	}
 };
 
+class ThreadCreationException : public NetworkException {
+public:
+	virtual const char* what() const throw() {
+		return "Failed to create the thread.";
+	}
+};
+
+
 class ThreadsLimitException : public NetworkException {
 public:
 	virtual const char* what() const throw() {
@@ -59,6 +67,15 @@ public:
 		return "Failed to initialize the mutex.";
 	}
 };
+
+class CVInitializationException : public NetworkException {
+public:
+	virtual const char* what() const throw() {
+		return "Failed to initialize the condition variable.";
+	}
+};
+
+
 
 
 class SocketException : public NetworkException {

@@ -9,7 +9,8 @@ class Job : public Thread {
   sockaddr_in _clientAddr;
   void *_shared;
 public:
-  Job(UDPSocket *handlerSocket = 0);
+  Job();
+  Job(UDPSocket *handlerSocket);
   Job(const Job &other);
 
   void run();

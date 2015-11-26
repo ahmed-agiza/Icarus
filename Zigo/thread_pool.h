@@ -70,9 +70,14 @@ public:
   }
 
   ~ThreadPool() {
+    ThreadType *threadRef;
     while(!_threadQueue.empty()) {
-      delete _threadQueue.front();
+      threadRef = dynamic_cast<ThreadType *>(_threadQueue.front());
+      threadRef->safeStop();
+      threadRef->wait();
+      delete threadRef;
       _threadQueue.pop();
+
     }
   }
 };

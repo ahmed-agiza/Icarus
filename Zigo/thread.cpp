@@ -2,16 +2,37 @@
 
 
 Thread::Thread():_running(0), _thread(new pthread_t), _lock(0), _terminationFlag(0) {
+  if (pthread_mutex_init(&_internalLock, NULL))
+    throw MutexInitializationException();
 
+  if (pthread_cond_init(&_internalCv, NULL))
+    throw CVInitializationException();
+
+  int rc = pthread_create(_thread, 0, _run, (void *) this);
+
+  if(rc)
+    throw ThreadCreationException();
 }
 Thread::Thread(const Thread &other):_running(other._running), _thread(new pthread_t), _lock(other._lock), _terminationFlag(other._terminationFlag){
   printf("Thread(const Thread &other)\n");
+  if (pthread_mutex_init(&_internalLock, NULL))
+    throw MutexInitializationException();
+
+  if (pthread_cond_init(&_internalCv, NULL))
+    throw CVInitializationException();
+
+  int rc = pthread_create(_thread, 0, _run, (void *) this);
+
+  if(rc)
+    throw ThreadCreationException();
 }
 
 int Thread::start() {
   if (!_running) {
-    int rc = pthread_create(_thread, 0, _run, (void *) this);
-    return !rc;
+    pthread_mutex_lock(&_internalLock);
+    pthread_cond_signal(&_internalCv);
+    pthread_mutex_unlock(&_internalLock);
+    return 1;
   } else {
     Logger::warn("Thread is already running..");
   }
@@ -27,15 +48,27 @@ void Thread::stop() {
   wait();
 }
 
+void Thread::safeStop() {
+  _terminationFlag = true;
+  start();
+}
+
 bool Thread::_terminationRequest() const {
   return _terminationFlag;
 }
 
 void *Thread::_run(void *thisThread) {
   Thread *threadObject = (Thread *) thisThread;
-  threadObject->_running = 1;
-  threadObject->run();
-  threadObject->_running = 0;
+  pthread_mutex_lock(&threadObject->_internalLock);
+  pthread_cond_wait(&threadObject->_internalCv, &threadObject->_internalLock);
+  pthread_mutex_unlock(&threadObject->_internalLock);
+
+  if (!threadObject->_terminationRequest()) {
+    threadObject->_running = 1;
+    threadObject->run();
+    threadObject->_running = 0;
+  }
+
   pthread_exit(0);
 }
 
@@ -108,4 +141,6 @@ int Thread::unlock(pthread_mutex_t *lock) const {
 Thread::~Thread() {
   if(_thread)
     delete _thread;
+  pthread_mutex_destroy(&_internalLock);
+  pthread_cond_destroy(&_internalCv);
 }

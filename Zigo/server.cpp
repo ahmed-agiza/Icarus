@@ -1,19 +1,16 @@
 #include "server.h"
 
-Server::Server(uint16_t listenPort):_listenPort(listenPort), _terminated(false), _clientHead(0), _clientTail(0), _jobCount(0) {
+Server::Server(uint16_t listenPort):_listenPort(listenPort), _terminated(false), _clientHead(0), _clientTail(0), _jobCount(0), _jobsPool(MAX_JOBS, true) {
   memset((void *)&_clientsTable, 0, sizeof(_clientsTable));
   hcreate_r(30, &_clientsTable);
   _serverSocket = new UDPSocket;
   _serverSocket->initialize(listenPort);
 
   if (pthread_mutex_init(&_terminationLock, NULL) != 0)
-  throw MutexInitializationException();
+    throw MutexInitializationException();
 
   _serverSocket->setMutex(&_terminationLock);
-
 }
-
-
 
 void Server::listen() {
   Message request;
@@ -76,11 +73,11 @@ void Server::serveRequest(Message  &request) {
     Message portReplyMessage(Accept, portReply);
     _sendMessage(portReplyMessage);
 
-    Job *job = new Job(handlerSocket);
+    Job *job = dynamic_cast<Job *>(_jobsPool.acquire());
+    job->setSocket(handlerSocket);
     job->setSharedData((bool *)&_terminated);
 
     if(job->start()) {
-      jobs[_jobCount++] = job;
       addClient(connectionStr, clientPort, job);
       printf("Serving client..\n");
     } else {
@@ -100,7 +97,7 @@ size_t Server::getJobCount() const {
 int Server::addClient(char *addr, int port, Job *job) {
   int currentPort = getClientPort(addr);
   if (currentPort > -1)
-  return currentPort;
+    return currentPort;
 
   ENTRY clientEntry, *temp;
   clientEntry.key = new char[64];

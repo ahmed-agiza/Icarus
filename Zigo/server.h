@@ -6,6 +6,7 @@
 
 #include "udp_socket.h"
 #include "job.h"
+#include "thread_pool.h"
 
 #define SERVER_REPLY_TO 4
 #define MAX_JOBS 30
@@ -111,8 +112,8 @@ private:
   ClientNode *_clientHead;
   ClientNode *_clientTail;
 
-  Job * jobs[MAX_JOBS];
   size_t _jobCount;
+  ThreadPool<Job> _jobsPool;
 
 public:
   Server(uint16_t listenPort);

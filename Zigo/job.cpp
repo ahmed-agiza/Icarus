@@ -1,5 +1,9 @@
 #include "job.h"
 
+Job::Job(): _socket(0){
+
+}
+
 Job::Job(UDPSocket *handlerSocket):Thread(), _socket(handlerSocket), _clientAddr(handlerSocket->getPeerAddress()){
 
 }
