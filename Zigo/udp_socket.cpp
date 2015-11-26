@@ -3,8 +3,15 @@
 UDPSocket::UDPSocket () : _lock(0) {
   _socketFd = socket(AF_INET, SOCK_DGRAM, 0);
   if(_socketFd < 0)
-  throw SocketException();
+    throw SocketException();
   _sinSize = sizeof(sockaddr_in);
+}
+
+UDPSocket::UDPSocket (const UDPSocket &other):_lock(other._lock) {
+  _socketFd = dup(other._socketFd);
+  _sinSize = other._sinSize;
+  memcpy((void *)&_hostAddr, (void *)&other._hostAddr, sizeof(other._hostAddr));
+  memcpy((void *)&_peerAddr, (void *)&other._peerAddr, sizeof(other._peerAddr));
 }
 
 int UDPSocket::getFd() const {
@@ -17,10 +24,10 @@ uint16_t UDPSocket::initialize(uint16_t port) {
   _hostAddr.sin_addr.s_addr = INADDR_ANY; //inet_addr(peerName); //receive messages from this address only
   bzero(&_hostAddr.sin_zero, 8);
   if(bind(_socketFd, (sockaddr *) &_hostAddr, sizeof(_hostAddr)) == -1)
-  throw ServerBindingException();
+    throw ServerBindingException();
 
   if(getsockname(_socketFd, (sockaddr *) &_hostAddr, &_sinSize) == -1)
-  throw ClientBindingException();
+    throw ClientBindingException();
 
   return ntohs(_hostAddr.sin_port); //will be sent to the client to start communication at this port
 }
@@ -31,7 +38,7 @@ uint16_t UDPSocket::initialize(char * peerName, uint16_t port) {
   _peerAddr.sin_port = htons(port);
   hostent *serverName = gethostbyname(peerName);
   if(serverName == NULL)
-  throw HostResolveException();
+    throw HostResolveException();
   memcpy((char *)&_peerAddr.sin_addr.s_addr, (char*) serverName->h_addr, serverName->h_length);
   memset(&(_peerAddr.sin_zero), 0, 8);
   return ntohs(_peerAddr.sin_port);
@@ -91,7 +98,7 @@ Message UDPSocket::recvMessage() {
 Message UDPSocket::recvMessageTimeout(time_t seconds, suseconds_t mseconds) {
   ssize_t readLength = _recvRawTimeout(seconds, mseconds);
   if (readLength < 0)
-  throw ReceiveFailureException();
+    throw ReceiveFailureException();
   return _readMessage;
 }
 
@@ -108,7 +115,7 @@ void UDPSocket::setRecvTimeout(time_t seconds, suseconds_t micro) {
   _recvTimeout.tv_sec = seconds;
   _recvTimeout.tv_usec = micro;
   if (setsockopt (_socketFd, SOL_SOCKET, SO_RCVTIMEO, (char *)&_recvTimeout, sizeof(_recvTimeout)) < 0)
-  throw SetReceiveTimeoutException();
+    throw SetReceiveTimeoutException();
 }
 
 void UDPSocket::setTimeout(time_t seconds, suseconds_t micro) {
@@ -121,11 +128,11 @@ void UDPSocket::setMutex(pthread_mutex_t *mutex) {
 }
 void UDPSocket::lock() {
   if(_lock)
-  pthread_mutex_lock(_lock);
+    pthread_mutex_lock(_lock);
 }
 void UDPSocket::unlock() {
   if(_lock)
-  pthread_mutex_unlock(_lock);
+    pthread_mutex_unlock(_lock);
 }
 
 void UDPSocket::closeSocket(){

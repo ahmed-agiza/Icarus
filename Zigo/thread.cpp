@@ -1,8 +1,11 @@
 #include "thread.h"
 
 
-Thread::Thread():_running(0), _thread(new pthread_t), _lock(0) {
+Thread::Thread():_running(0), _thread(new pthread_t), _lock(0), _terminationFlag(0) {
 
+}
+Thread::Thread(const Thread &other):_running(other._running), _thread(new pthread_t), _lock(other._lock), _terminationFlag(other._terminationFlag){
+  printf("Thread(const Thread &other)\n");
 }
 
 int Thread::start() {
@@ -15,6 +18,18 @@ int Thread::start() {
   return -1;
 }
 
+bool Thread::reset() {
+  return true;
+}
+
+void Thread::stop() {
+  _terminationFlag = true;
+  wait();
+}
+
+bool Thread::_terminationRequest() const {
+  return _terminationFlag;
+}
 
 void *Thread::_run(void *thisThread) {
   Thread *threadObject = (Thread *) thisThread;
@@ -23,6 +38,15 @@ void *Thread::_run(void *thisThread) {
   threadObject->_running = 0;
   pthread_exit(0);
 }
+
+pthread_cond_t *Thread::getCV() const {
+  return _cv;
+}
+
+void Thread::setCV(pthread_cond_t *cv) {
+  _cv = cv;
+}
+
 
 bool Thread::isRunning() const {
   return _running;

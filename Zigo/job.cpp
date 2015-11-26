@@ -4,6 +4,15 @@ Job::Job(UDPSocket *handlerSocket):Thread(), _socket(handlerSocket), _clientAddr
 
 }
 
+Job::Job(const Job &other):Thread(other), _socket(new UDPSocket(*other._socket)), _clientAddr(_socket->getPeerAddress()){
+  printf("Job(const Job &other)\n");
+}
+
+void Job::setSocket(UDPSocket *socket){
+  _socket = socket;
+  _clientAddr = _socket->getPeerAddress();
+}
+
 UDPSocket *Job::getSocket() const {
   return _socket;
 }
@@ -26,7 +35,7 @@ void Job::run() {
     printf("Waiting..\n");
     while(1) {
       try {
-        if(*terminated) {
+        if(*terminated || _terminationRequest()) {
           break;
         }
         request = handlerSocket->recvMessageTimeout(2, 0);
@@ -36,7 +45,7 @@ void Job::run() {
       break;
     }
 
-    if(*terminated){
+    if(*terminated || _terminationRequest()) {
       char serverTerminationMessage[LOG_MESSAGE_LENGTH];
       sprintf(serverTerminationMessage, "Closing %lu because of server termination..", currentId);
       Logger::info(serverTerminationMessage);
@@ -55,7 +64,7 @@ void Job::run() {
       continue;
     }
 
-    if(request.isTerminationMessage()){
+    if(request.isTerminationMessage()) {
       handlerSocket->lock();
       *terminated = true;
       break;
@@ -99,6 +108,18 @@ void Job::run() {
   Logger::info(servingDoneMessage);
 
   handlerSocket->unlock();
+}
+
+bool Job::reset() {
+  stop();
+  if(_socket)
+    delete _socket;
+  _socket = 0;
+  return true;
+}
+
+void Job::stop() {
+  Thread::stop();
 }
 
 void Job::setSharedData(void *ptr) {

@@ -48,6 +48,7 @@ protected:
 
 public:
   UDPSocket ();
+  UDPSocket (const UDPSocket &other);
   int getFd() const;
 
   uint16_t initialize(uint16_t port = 0);

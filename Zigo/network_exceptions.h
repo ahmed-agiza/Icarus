@@ -17,6 +17,13 @@ public:
 	}
 };
 
+class ThreadsLimitException : public NetworkException {
+public:
+	virtual const char* what() const throw() {
+		return "No more available threads.";
+	}
+};
+
 class InvalidOptionException : public NetworkException {
 public:
 	virtual const char* what() const throw() {

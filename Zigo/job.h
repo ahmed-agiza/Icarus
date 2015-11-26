@@ -9,11 +9,15 @@ class Job : public Thread {
   sockaddr_in _clientAddr;
   void *_shared;
 public:
-  Job(UDPSocket *handlerSocket);
+  Job(UDPSocket *handlerSocket = 0);
+  Job(const Job &other);
 
   void run();
+  bool reset();
+  void stop();
 
   UDPSocket *getSocket() const;
+  void setSocket(UDPSocket *socket);
 
   void setSharedData(void *ptr);
   void *getSharedData() const;
