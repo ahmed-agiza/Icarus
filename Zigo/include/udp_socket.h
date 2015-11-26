@@ -19,6 +19,7 @@
 
 #include "message.h"
 #include "network_exceptions.h"
+#include "settings.h"
 
 
 class UDPSocket {

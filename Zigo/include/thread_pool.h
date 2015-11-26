@@ -20,7 +20,14 @@ class ThreadPool {
 
 public:
 
-  ThreadPool(size_t size = POOL_SIZE, bool autoCreate = true, ThreadType *defaultVal = 0) {
+  ThreadPool(): _poolSize(0), _availableThreads(0), _usedThreads(0), _autoCreate(){
+  }
+
+  ThreadPool(size_t size, bool autoCreate, ThreadType *defaultVal) {
+    initialize(size, autoCreate, defaultVal);
+  }
+
+  void initialize(size_t size = POOL_SIZE, bool autoCreate = true, ThreadType *defaultVal = 0) {
     _availableThreads = 0;
     _usedThreads = 0;
     _poolSize = size;

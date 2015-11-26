@@ -10,6 +10,7 @@ public:
 	}
 };
 
+
 class SettingsLoadException : public NetworkException {
 public:
 	virtual const char* what() const throw() {

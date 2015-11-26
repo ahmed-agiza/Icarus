@@ -1,6 +1,7 @@
 #include "server.h"
 
-Server::Server(uint16_t listenPort):_listenPort(listenPort), _terminated(false), _clientHead(0), _clientTail(0), _jobCount(0), _jobsPool(MAX_JOBS, true) {
+Server::Server(uint16_t listenPort):_listenPort(listenPort), _terminated(false), _clientHead(0), _clientTail(0), _jobCount(0) {
+  _jobsPool.initialize(Settings::getInstance().getPoolSize(), true);
   memset((void *)&_clientsTable, 0, sizeof(_clientsTable));
   hcreate_r(30, &_clientsTable);
   _serverSocket = new UDPSocket;
@@ -21,7 +22,8 @@ void Server::listen() {
         if(_terminated) {
           break;
         }
-        request = _getMessageTimeout(SERVER_REPLY_TO, 0);
+        uint32_t serverReplyTo = Settings::getInstance().getServerReplyTimeout();
+        request = _getMessageTimeout(serverReplyTo, 0);
         if (request.getType() != Connect) {
           char invalidRequestMessage[LOG_MESSAGE_LENGTH];
           sprintf(invalidRequestMessage, "Invalid request %s", request.getBody());

@@ -3,8 +3,8 @@
 
 #include "udp_socket.h"
 
-#define MAX_RETRY 3
-#define CLIENT_REPLY_TO 3
+/*#define MAX_RETRY 3
+#define CLIENT_REPLY_TO 3*/
 
 class Client {
 private:

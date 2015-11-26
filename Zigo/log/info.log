@@ -1,26 +1,8 @@
-Infromation(2015-11-26 16:43:7): Request from 127.0.0.1(63444): 127.0.0.1:15366
-Infromation(2015-11-26 16:43:7): Serving client 127.0.0.1 from 139662173021952
-Infromation(2015-11-26 16:43:7): Connecting on port: 44929
-Infromation(2015-11-26 16:43:11): Request from 127.0.0.1(63444): Hello!
-Infromation(2015-11-26 16:43:14): Request from 127.0.0.1(63444): Bye
-Infromation(2015-11-26 16:43:15): Client terminated with code 0.
-Infromation(2015-11-26 16:43:15): Request from 127.0.0.1(63444): q
-Infromation(2015-11-26 16:43:15): Done serving 127.0.0.1(63444)
-Infromation(2015-11-26 16:43:15): Server terminated!
-Infromation(2015-11-26 17:52:40): Request from 127.0.0.1(65452): 127.0.0.1:19134
-Infromation(2015-11-26 17:52:40): Serving client 127.0.0.1 from 140098124547840
-Infromation(2015-11-26 17:52:40): Connecting on port: 44753
-Infromation(2015-11-26 17:52:47): Request from 127.0.0.1(59371): 127.0.0.1:19183
-Infromation(2015-11-26 17:52:47): Serving client 127.0.0.1 from 139891449407232
-Infromation(2015-11-26 17:52:47): Connecting on port: 37491
-Infromation(2015-11-26 17:52:50): Request from 127.0.0.1(36550): 127.0.0.1:19184
-Infromation(2015-11-26 17:52:50): Serving client 127.0.0.1 from 139891441014528
-Infromation(2015-11-26 17:52:50): Connecting on port: 39193
-Infromation(2015-11-26 17:52:52): Request from 127.0.0.1(36550): Hello
-Infromation(2015-11-26 17:52:54): Request from 127.0.0.1(36550): It is me
-Infromation(2015-11-26 17:52:56): Client terminated with code 0.
-Infromation(2015-11-26 17:52:56): Request from 127.0.0.1(36550): q
-Infromation(2015-11-26 17:52:56): Done serving 127.0.0.1(36550)
-Infromation(2015-11-26 17:52:57): Closing 139891449407232 because of server termination..
-Infromation(2015-11-26 17:52:57): Done serving 127.0.0.1(59371)
-Infromation(2015-11-26 17:52:58): Server terminated!
+Infromation(2015-11-26 19:19:44): Request from 127.0.0.1(57515): 127.0.0.1:27251
+Infromation(2015-11-26 19:19:44): Serving client 127.0.0.1 from 140663565674240
+Infromation(2015-11-26 19:19:44): Connecting on port: 34120
+Infromation(2015-11-26 19:19:45): Request from 127.0.0.1(57515): Hello
+Infromation(2015-11-26 19:19:46): Client terminated with code 0.
+Infromation(2015-11-26 19:19:46): Request from 127.0.0.1(57515): q
+Infromation(2015-11-26 19:19:46): Done serving 127.0.0.1(57515)
+Infromation(2015-11-26 19:19:48): Server terminated!

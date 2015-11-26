@@ -1,19 +1,19 @@
 #include "logger.h"
 
 int Logger::info(char const *message) {
-  if (LOG_LVL <= Verbose) {
+  if (Settings::getInstance().getLogLevel() <= Verbose) {
     return _logMessage(LOG_INFO_PATH, "Infromation", message, stdout);
   }
   return INVALID_LOG_LEVEL;
 }
 int Logger::warn(char const *message) {
-  if (LOG_LVL <= Warning) {
+  if (Settings::getInstance().getLogLevel() <= Warning) {
     return _logMessage(LOG_ERROR_PATH, "Warning", message, stderr);
   }
   return INVALID_LOG_LEVEL;
 }
 int Logger::error(char const *message) {
-  if (LOG_LVL <= Error) {
+  if (Settings::getInstance().getLogLevel() <= Error) {
     return _logMessage(LOG_ERROR_PATH, "Error", message, stderr);
   }
   return INVALID_LOG_LEVEL;

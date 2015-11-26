@@ -19,9 +19,9 @@ void Client::_establishConnection() {
   ssize_t sentBytes = _sendMessage(connectionMessage);
 
   if(sentBytes < 0)
-  return;
-
-  Message portReply = _getReplyTimeout(CLIENT_REPLY_TO, 0);
+    return;
+  uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
+  Message portReply = _getReplyTimeout(clientReplyTo, 0);
   if (portReply.getType() != Accept) {
     char invalidReplyMessage[LOG_MESSAGE_LENGTH];
     sprintf(invalidReplyMessage, "Invalid reply: %s", portReply.getBytes());
@@ -55,7 +55,9 @@ int Client::start() {
     fgets(tempBuff, sizeof tempBuff, stdin);
     tempBuff[strlen(tempBuff) - 1] = 0;
 
-    while(!success && retry < MAX_RETRY){ //try to re-send packet if failed within MAX_RETRY
+    uint32_t maxRetry = Settings::getInstance().getRetryTimes();
+
+    while(!success && retry < (int)maxRetry){ //try to re-send packet if failed within MAX_RETRY
       printf("Sending %s..\n", tempBuff);
       fflush(stdout);
 
@@ -69,7 +71,8 @@ int Client::start() {
         break;
       }
 
-      Message ackReply = _getReplyTimeout(CLIENT_REPLY_TO, 0);
+      uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
+      Message ackReply = _getReplyTimeout(clientReplyTo, 0);
 
       if (ackReply.getType() != Acknowledge) {
         char invalidReplyMessage[LOG_MESSAGE_LENGTH];
@@ -87,13 +90,14 @@ int Client::start() {
       Message ackBackReply(Acknowledge, ackBack);
 
       sentAckBytes = _sendMessage(ackBackReply);
+      (void) sentAckBytes;
 
       if(!success){ //packet loss
         char misacknowledgmentMessage[LOG_MESSAGE_LENGTH];
         sprintf(misacknowledgmentMessage, "Mismatch between acknowledgment and sent bytes (%d==%d)?.", (int)sentBytes, (int) ackNumber);
         Logger::error(misacknowledgmentMessage);
         retry++;
-        if(retry < MAX_RETRY){
+        if(retry < (int)maxRetry){
           char retryMessage[LOG_MESSAGE_LENGTH];
           sprintf(retryMessage, "Retrying to send the message(%d)..", retry);
           Logger::warn(retryMessage);
@@ -113,7 +117,10 @@ int Client::start() {
 
 
     printf("Receiving reply..\n");
-    Message replyMessage = _getReplyTimeout(CLIENT_REPLY_TO, 0);
+
+
+    uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
+    Message replyMessage = _getReplyTimeout(clientReplyTo, 0);
     if (replyMessage.getType() != Reply) {
       char invalidReplyMessage[LOG_MESSAGE_LENGTH];
       sprintf(invalidReplyMessage, "Invalid reply: %s", replyMessage.getBytes());

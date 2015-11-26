@@ -1,5 +1,8 @@
 #include "server.h"
-
+#include <iostream>
+using std::cout;
+using std::endl;
+#include "settings.h"
 int main(int argc, char const *argv[]) {
   try {
     Server server(9999);
