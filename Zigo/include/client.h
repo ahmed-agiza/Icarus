@@ -2,6 +2,7 @@
 #define CLIENT_H
 
 #include "udp_socket.h"
+#include "file.h"
 
 /*#define MAX_RETRY 3
 #define CLIENT_REPLY_TO 3*/

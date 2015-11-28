@@ -47,6 +47,7 @@ int Client::start() {
   ssize_t sentBytes;  //number of bytes sent to the server
   ssize_t sentAckBytes;
   int retry;
+  File *file;
   Message requestMessage;
   while(1) {
     success = 0;
@@ -55,9 +56,51 @@ int Client::start() {
     fgets(tempBuff, sizeof tempBuff, stdin);
     tempBuff[strlen(tempBuff) - 1] = 0;
     if (strcmp(tempBuff, "f") == 0) {
+      printf("Enter file operation (o=open, r=read, w=write, l=lseek, c=close): ");
       fgets(tempBuff, sizeof tempBuff, stdin);
       tempBuff[strlen(tempBuff) - 1] = 0;
-      requestMessage = Message(Packet, tempBuff);
+      if (strcmp(tempBuff, "o") == 0) {
+        printf("Enter file name: ");
+        fgets(tempBuff, sizeof tempBuff, stdin);
+        tempBuff[strlen(tempBuff) - 1] = 0;
+        file = File::ropen(_clientSocket, tempBuff);
+        int fd = file->getFd();
+        printf("File descriptor: %d\n", fd);
+
+        success = 1;
+
+        sprintf(ackBack, "%d", (int) success);
+        Message ackBackReply(Acknowledge, ackBack);
+
+        sentAckBytes = _sendMessage(ackBackReply);
+        (void) sentAckBytes;
+
+      } else if (strcmp(tempBuff, "r") == 0) {
+        char readingBuffer[2048];
+        file->read(readingBuffer, 5);
+
+        printf("Read: %s\n", readingBuffer);
+      } else if (strcmp(tempBuff, "w") == 0) {
+        printf("Enter data: ");
+        fgets(tempBuff, sizeof tempBuff, stdin);
+        tempBuff[strlen(tempBuff) - 1] = 0;
+        size_t writtenBytes = file->write(tempBuff, strlen(tempBuff));
+        printf("Written %zd\n", writtenBytes);
+      } else if (strcmp(tempBuff, "l") == 0) {
+        printf("Enter new position: ");
+        fgets(tempBuff, sizeof tempBuff, stdin);
+        tempBuff[strlen(tempBuff) - 1] = 0;
+        printf("Temp Buff: %s\n", tempBuff);
+        off_t offset = (off_t)atol(tempBuff);
+        printf("%d\n", offset);
+        file->setOffset(offset);
+        printf("Offset updated!\n");
+      } else if (strcmp(tempBuff, "c") == 0) {
+        printf("Closing..\n");
+        fflush(stdout);
+        printf("Client: File close %d\n", file->close());
+      }
+      continue;
     } else {
       requestMessage = Message(Request, tempBuff); //wrap the text in message form
     }

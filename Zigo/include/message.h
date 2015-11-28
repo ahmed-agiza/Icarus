@@ -18,6 +18,12 @@ enum MessageType {
     Terminate = 5,
     Acknowledge = 6,
     Packet = 7, //F
+    Open = 8, //O
+    Close = 9, //X
+    Read = 10, //D
+    Write = 11, //W
+    Lseek = 12, //L
+    Eof = 13, //E
     Unknown = -1 // U
 };
 
@@ -37,7 +43,7 @@ public:
     Message (const Message &other);
 
     size_t writeFile(const char *fileName);
-
+    bool isFileOperation();
 
     const char *getBytes() const;
     size_t getMessagSize() const;

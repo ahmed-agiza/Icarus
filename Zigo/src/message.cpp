@@ -57,6 +57,10 @@ size_t Message::writeFile(const char *fileName) {
   return writtenBytes;
 }
 
+bool Message::isFileOperation() {
+  return (_type == Open || _type == Read || _type == Write || _type == Close || _type == Lseek);
+}
+
 const char *Message::getBytes() const {
   size_t bodyLen = strlen(_body);
   size_t bufferSize = bodyLen + sizeof(_length) + sizeof(_type);
@@ -122,9 +126,22 @@ MessageType Message:: _letterToType(char typeLetter) const {
     return Terminate;
   else if (typeLetter == 'F')
     return Packet;
+  else if (typeLetter == 'O')
+    return Open;
+  else if (typeLetter == 'X')
+    return Close;
+  else if (typeLetter == 'D')
+    return Read;
+  else if (typeLetter == 'W')
+    return Write;
+  else if (typeLetter == 'L')
+    return Lseek;
+  else if (typeLetter == 'E')
+    return Eof;
   else
     return Unknown;
 }
+
 char Message::_typeToLetter(MessageType type) const {
   if (type == Request)
     return 'Q';
@@ -142,6 +159,18 @@ char Message::_typeToLetter(MessageType type) const {
     return 'T';
   else if (type == Packet)
     return 'F';
+  else if (type == Open)
+    return 'O';
+  else if (type == Close)
+    return 'X';
+  else if (type == Read)
+    return 'D';
+  else if (type == Write)
+    return 'W';
+  else if (type == Lseek)
+    return 'L';
+  else if (type == Eof)
+    return 'E';
   else
     return 'U';
 }

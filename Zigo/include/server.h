@@ -9,6 +9,7 @@ using std::map;
 #include "udp_socket.h"
 #include "job.h"
 #include "thread_pool.h"
+#include "file.h"
 
 struct StringCompare {
    bool operator()(char const *a, char const *b) {

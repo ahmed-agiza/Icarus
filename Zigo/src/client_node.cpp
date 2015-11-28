@@ -44,3 +44,44 @@ void ClientNode::setJob(Job *job) {
 Job *ClientNode::getJob(){
   return _reponderJob;
 }
+
+File *ClientNode::addFile(int fd, File *file) {
+  _openFiles[fd] = file;
+  return file;
+}
+
+File *ClientNode::getFile(int fd) {
+  if(hasOpenFile(fd)) {
+    return _openFiles[fd];
+  }
+
+  return NULL;
+}
+
+bool ClientNode::removeFile(int fd) {
+  if(hasOpenFile(fd)) {
+    _openFiles.erase(fd);
+    return true;
+  }
+
+  return false;
+}
+
+bool ClientNode::hasOpenFile(int fd) {
+  if(_openFiles.find(fd) != _openFiles.end()) {
+    return _openFiles[fd]->isOpen();
+  }
+  return false;
+}
+
+map<int, File *> &ClientNode::getFileTable() {
+  return _openFiles;
+}
+ClientNode::~ClientNode() {
+  for (std::map<int, File *>::iterator it = _openFiles.begin(); it != _openFiles.end(); ++it) {
+    if (it->second && it->second->isOpen()) {
+        it->second->close();
+        delete it->second;
+    }
+  }
+}

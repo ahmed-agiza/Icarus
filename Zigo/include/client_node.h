@@ -1,7 +1,11 @@
 #ifndef CLIENT_NODE_H
 #define CLIENT_NODE_H
 
+#include <map>
+using std::map;
+
 #include "udp_socket.h"
+#include "file.h"
 
 class Job;
 
@@ -11,7 +15,7 @@ class ClientNode {
   UDPSocket *_socket;
   uint16_t _port;
   Job *_reponderJob;
-
+  map<int, File *> _openFiles;
 public:
 
   ClientNode(const char *id);
@@ -37,6 +41,17 @@ public:
 
   Job *getJob();
 
+  File *addFile(int fd, File * file);
+
+  bool removeFile(int fd);
+
+  File *getFile(int fd);
+
+  bool hasOpenFile(int fd);
+
+  map<int, File *> &getFileTable();
+
+  ~ClientNode();
 
 };
 
