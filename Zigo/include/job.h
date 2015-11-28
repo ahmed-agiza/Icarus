@@ -3,29 +3,26 @@
 
 #include "thread.h"
 #include "udp_socket.h"
+#include "client_node.h"
 
 class Job : public Thread {
-  UDPSocket *_socket;
-  sockaddr_in _clientAddr;
+  ClientNode *_client;
   void *_shared;
 public:
   Job();
-  Job(UDPSocket *handlerSocket);
+  Job(ClientNode *client);
   Job(const Job &other);
 
   void run();
   bool reset();
   void stop();
 
-  UDPSocket *getSocket() const;
-  void setSocket(UDPSocket *socket);
+  ClientNode *getClient() const;
+  void setClient(ClientNode *);
 
   void setSharedData(void *ptr);
   void *getSharedData() const;
 
-
-  void setClientAddr (sockaddr_in clientAddr);
-  sockaddr_in getClienAddr() const;
 
   ~Job();
 };

@@ -1,9 +1,9 @@
 #include "server.h"
 
-Server::Server(uint16_t listenPort):_listenPort(listenPort), _terminated(false), _clientHead(0), _clientTail(0), _jobCount(0) {
+Server::Server(uint16_t listenPort):_listenPort(listenPort), _terminated(false), _jobCount(0) {
   _jobsPool.initialize(Settings::getInstance().getPoolSize(), true);
-  memset((void *)&_clientsTable, 0, sizeof(_clientsTable));
-  hcreate_r(30, &_clientsTable);
+
+
   _serverSocket = new UDPSocket;
   _serverSocket->initialize(listenPort);
 
@@ -15,6 +15,7 @@ Server::Server(uint16_t listenPort):_listenPort(listenPort), _terminated(false),
 
 void Server::listen() {
   Message request;
+  uint32_t serverReplyTo = Settings::getInstance().getServerReplyTimeout();
   while(1){
     printf("Listening..\n");
     while(1) {
@@ -22,7 +23,6 @@ void Server::listen() {
         if(_terminated) {
           break;
         }
-        uint32_t serverReplyTo = Settings::getInstance().getServerReplyTimeout();
         request = _getMessageTimeout(serverReplyTo, 0);
         if (request.getType() != Connect) {
           char invalidRequestMessage[LOG_MESSAGE_LENGTH];
@@ -58,7 +58,7 @@ void Server::serveRequest(Message  &request) {
 
   char *connectionStr = new char[strlen(request.getBody()) + 1];
   strcpy(connectionStr, request.getBody());
-  int checkPort = getClientPort(connectionStr);
+  int checkPort = _getClientPort(connectionStr);
 
   if (checkPort > -1) {
     char portExistsMessage[LOG_MESSAGE_LENGTH];
@@ -77,14 +77,16 @@ void Server::serveRequest(Message  &request) {
     _sendMessage(portReplyMessage);
 
     Job *job = dynamic_cast<Job *>(_jobsPool.acquire());
-    job->setSocket(handlerSocket);
+    ClientNode *client = _addClient(connectionStr, clientPort, job);
+    client->setSocket(handlerSocket);
+    job->setClient(client);
     job->setSharedData((bool *)&_terminated);
 
     if(job->start()) {
-      addClient(connectionStr, clientPort, job);
       printf("Serving client..\n");
     } else {
       Logger::error("Failed to create the server thread.");
+      _removeClient(connectionStr);
     }
   }
 
@@ -97,68 +99,37 @@ size_t Server::getJobCount() const {
   return _jobCount;
 }
 
-int Server::addClient(char *addr, int port, Job *job) {
-  int currentPort = getClientPort(addr);
-  if (currentPort > -1)
-    return currentPort;
+ClientNode *Server::_addClient(char *id, int port, Job *job) {
+  if(_clients.find(id) != _clients.end())
+    return _clients[id];
 
-  ENTRY clientEntry, *temp;
-  clientEntry.key = new char[64];
-  strcpy(clientEntry.key, addr);
-  ClientNode* newClient;
+  ClientNode *client = new ClientNode(id);
+  client->setPort(port);
+  client->setJob(job);
 
-  if(!_clientHead){
-    newClient = _clientHead = new ClientNode(addr);
-    newClient->setPort(port);
-    newClient->setJob(job);
-    newClient->setNodeKey(clientEntry.key);
-    _clientTail = _clientHead;
-  } else {
-    newClient = _clientTail->addNext(new ClientNode(addr));
-    newClient->setPort(port);
-    newClient->setJob(job);
-    newClient->setNodeKey(clientEntry.key);
-    _clientTail = newClient;
-  }
+  _clients[id] = client;
 
-  clientEntry.data = (void*)newClient;
-  hsearch_r(clientEntry, ENTER, &temp, &_clientsTable);
-  return port;
+  return client;
 }
 
-int Server::getClientPort(char *addr) {
-  ENTRY clientQuery, *ret;
-  clientQuery.key = addr;
-  int found = hsearch_r(clientQuery, FIND, &ret, &_clientsTable);
-  if (!found || !ret)
-  return -1;
-  ClientNode *_client = (ClientNode *) ret->data;
-  if(_client)
-  return _client->getPort();
-  return -1;
+int Server::_getClientPort(char *id) {
+  if (_clients.find(id) == _clients.end())
+    return -1;
+  return _clients[id]->getPort();
 }
 
-int Server::removeClient(char *addr) {
-  ENTRY clientQuery, *ret;
-  clientQuery.key = addr;
-  clientQuery.data = 0;
-  int found = hsearch_r(clientQuery, FIND, &ret, &_clientsTable);
-  if (!found || !ret)
-  return -1;
+ClientNode *Server::_getClient(char *id) {
+  return _clients[id];
+}
 
-  ClientNode *_client = (ClientNode *) ret->data;
+int Server::_removeClient(char *id) {
+  if (_clients.find(id) == _clients.end())
+    return -1;
 
-  ret->data = (void *) NULL;
+  if(_clients[id])
+    delete _clients[id];
+  _clients.erase(id);
 
-  if(_client->_prev)
-  _client->_prev->_next = _client->_next;
-  if(_client->_next)
-  _client->_next->_prev = _client->_prev;
-  if(_clientTail == _client)
-  _clientTail = _client->_prev;
-  if(_clientHead == _client)
-  _clientHead = _client->_next;
-  delete _client;
   return 0;
 }
 
@@ -179,16 +150,14 @@ void Server::_sendReply() {
 }
 
 Server::~Server() {
-  hdestroy_r(&_clientsTable);
-  while(_clientHead){
-    ClientNode *temp = _clientHead;
-    _clientHead = _clientHead->_next;
-    Job *clientJob = temp->getJob();
-    if(clientJob) {
+  for (std::map<char *, ClientNode *, StringCompare>::iterator it = _clients.begin(); it != _clients.end(); ++it) {
+    ClientNode *client = it->second;
+    Job *clientJob = client->getJob();
+    if (clientJob) {
       clientJob->wait();
       delete clientJob;
     }
-    delete temp;
+    _removeClient(it->first);
   }
   pthread_mutex_destroy(&_terminationLock);
 }

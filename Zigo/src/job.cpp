@@ -1,28 +1,28 @@
 #include "job.h"
 
-Job::Job():Thread(), _socket(0){
+Job::Job():Thread(), _client(0){
 
 }
 
-Job::Job(UDPSocket *handlerSocket):Thread(), _socket(handlerSocket), _clientAddr(handlerSocket->getPeerAddress()){
+Job::Job(ClientNode *client):Thread(), _client(client){
 
 }
 
-Job::Job(const Job &other):Thread(other), _socket(new UDPSocket(*other._socket)), _clientAddr(_socket->getPeerAddress()){
+Job::Job(const Job &other):Thread(other), _client(new ClientNode(*other._client)){
   printf("Job(const Job &other)\n");
 }
 
-void Job::setSocket(UDPSocket *socket){
-  _socket = socket;
-  _clientAddr = _socket->getPeerAddress();
+
+ClientNode *Job::getClient() const {
+  return _client;
+}
+void Job::setClient(ClientNode *client) {
+  _client = client;
 }
 
-UDPSocket *Job::getSocket() const {
-  return _socket;
-}
 
 void Job::run() {
-  UDPSocket *handlerSocket = getSocket();
+  UDPSocket *handlerSocket = _client->getSocket();
   sockaddr_in clientAddr = handlerSocket->getPeerAddress();
   char *clientAddrName = (char *)inet_ntoa(clientAddr.sin_addr);
 
@@ -121,9 +121,9 @@ void Job::run() {
 
 bool Job::reset() {
   stop();
-  if(_socket)
-    delete _socket;
-  _socket = 0;
+  if(_client->getSocket())
+    delete _client->getSocket();;
+  _client->setSocket(0);
   return true;
 }
 
@@ -140,16 +140,7 @@ void *Job::getSharedData() const {
 }
 
 
-void Job::setClientAddr (sockaddr_in clientAddr) {
-  _clientAddr = clientAddr;
-}
-
-sockaddr_in Job::getClienAddr() const {
-  return _clientAddr;
-}
 
 Job::~Job(){
-  if(_socket){
-    delete _socket;
-  }
+
 }

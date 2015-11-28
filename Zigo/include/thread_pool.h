@@ -84,7 +84,6 @@ public:
       threadRef->wait();
       delete threadRef;
       _threadQueue.pop();
-
     }
   }
 };

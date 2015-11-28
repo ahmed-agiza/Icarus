@@ -13,6 +13,7 @@ SOBJS = \
  $(OBJ_DIR)/server.o\
  $(OBJ_DIR)/logger.o\
  $(OBJ_DIR)/settings.o\
+ $(OBJ_DIR)/client_node.o\
  $(OBJ_DIR)/server_main.o
 
 COBJS = \
@@ -54,6 +55,9 @@ $(OBJ_DIR)/thread_pool.o : $(OBJ_DIR)/thread.o $(OBJ_DIR)/logger.o
 
 $(OBJ_DIR)/message.o : $(OBJ_DIR)/logger.o
 	$(CC) $(LFLAGS) -c $(SRC_DIR)/message.cpp -o $(OBJ_DIR)/logger.o
+
+$(OBJ_DIR)/client_node.o : $(OBJ_DIR)/logger.o
+	$(CC) $(LFLAGS) -c $(SRC_DIR)/client_node.cpp -o $(OBJ_DIR)/client_node.o
 
 $(OBJ_DIR)/logger.o : $(OBJ_DIR)/settings.o
 	$(CC) $(LFLAGS) -c $(SRC_DIR)/logger.cpp -o $(OBJ_DIR)/message.o
