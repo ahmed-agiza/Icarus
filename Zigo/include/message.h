@@ -17,6 +17,7 @@ enum MessageType {
     Ping = 4, // P
     Terminate = 5,
     Acknowledge = 6,
+    Packet = 7, //F
     Unknown = -1 // U
 };
 
@@ -34,6 +35,8 @@ public:
     Message(MessageType type, const char *body); //overloading constructor
 
     Message (const Message &other);
+
+    size_t writeFile(const char *fileName);
 
 
     const char *getBytes() const;

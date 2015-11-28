@@ -27,7 +27,6 @@ tm Logger::_getCurrentTime() {
 
 int Logger::_logMessage(char const *filePath, char const *prefix, char const *message, FILE *outFile) {
   FILE *logFile = fopen(filePath, "a+");
-
   if (logFile) {
     tm currentTime = _getCurrentTime();
 

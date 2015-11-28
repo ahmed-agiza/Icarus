@@ -1,6 +1,6 @@
 #include "job.h"
 
-Job::Job(): _socket(0){
+Job::Job():Thread(), _socket(0){
 
 }
 
@@ -61,7 +61,12 @@ void Job::run() {
     Logger::info(newConnectionMessage);
     fflush(stdout);
 
-    if(request.getType() != Request) {
+    if (request.getType() == Packet){
+      char fileName[60];
+      sprintf(fileName, "zigo-%d", rand());
+      printf("Writing %s\n", fileName);
+      request.writeFile(fileName);
+    } else if(request.getType() != Request) {
       char invalidRequestMessage[LOG_MESSAGE_LENGTH];
       sprintf(invalidRequestMessage, "Invalid request type: %s", request.getBytes());
       Logger::error(invalidRequestMessage);

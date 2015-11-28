@@ -61,7 +61,6 @@ public:
 
   Message recvMessageTimeout(time_t seconds, suseconds_t mseconds);
 
-
   void setSendTimeout(time_t seconds = 0, suseconds_t micro = 0);
   void setRecvTimeout(time_t seconds = 0, suseconds_t micro = 0);
   void setTimeout(time_t seconds = 0, suseconds_t micro = 0); // a function for both receiving and sending timeout

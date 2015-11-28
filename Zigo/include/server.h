@@ -1,7 +1,9 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-#define __USE_GNU
+#include <vector>
+using std::vector;
+
 #include <search.h>
 
 #include "udp_socket.h"

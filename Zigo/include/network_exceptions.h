@@ -18,6 +18,13 @@ public:
 	}
 };
 
+class FileOpenException : public NetworkException {
+public:
+	virtual const char* what() const throw() {
+		return "Failed to open the file.";
+	}
+};
+
 class ThreadCreationException : public NetworkException {
 public:
 	virtual const char* what() const throw() {

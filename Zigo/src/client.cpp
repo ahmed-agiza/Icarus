@@ -48,12 +48,19 @@ int Client::start() {
   ssize_t sentAckBytes;
   int retry;
   Message requestMessage;
-  while(1){
+  while(1) {
     success = 0;
     retry = -1;
     printf("Enter message to send:\n");
     fgets(tempBuff, sizeof tempBuff, stdin);
     tempBuff[strlen(tempBuff) - 1] = 0;
+    if (strcmp(tempBuff, "f") == 0) {
+      fgets(tempBuff, sizeof tempBuff, stdin);
+      tempBuff[strlen(tempBuff) - 1] = 0;
+      requestMessage = Message(Packet, tempBuff);
+    } else {
+      requestMessage = Message(Request, tempBuff); //wrap the text in message form
+    }
 
     uint32_t maxRetry = Settings::getInstance().getRetryTimes();
 
@@ -61,7 +68,6 @@ int Client::start() {
       printf("Sending %s..\n", tempBuff);
       fflush(stdout);
 
-      requestMessage = Message(Request, tempBuff); //wrap the text in message form
 
       sentBytes = _sendMessage(requestMessage); //send message to server
 

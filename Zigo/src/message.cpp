@@ -24,13 +24,38 @@ Message::Message (const char *content) {
 }
 
 Message::Message(MessageType type, const char *body):_type(type), _length(strlen(body)), _valid(true) {
-  setBody(body);
+  if (_type == Packet) {
+    int fd = open(body, O_RDONLY);
+    if(fd < 0){
+      _valid = false;
+      Logger::error("Failed to open packet file for reading.");
+      throw FileOpenException();
+    }
+    read(fd, _body, MAX_READ_SIZE);
+    _length = strlen(_body);
+    printf("Buffer: %s", _body);
+    close(fd);
+  } else {
+    setBody(body);
+  }
 }
 
 Message::Message(const Message &other): _type(other._type), _length(other._length), _valid(other._valid) {
   setBody(other._body);
 }
 
+
+size_t Message::writeFile(const char *fileName) {
+  int fd = open(fileName, O_CREAT | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+  if (fd < 0) {
+    Logger::error("Failed to open packet file for writing.");
+    throw FileOpenException();
+  }
+
+  size_t writtenBytes = write(fd, _body, MAX_READ_SIZE);
+  close(fd);
+  return writtenBytes;
+}
 
 const char *Message::getBytes() const {
   size_t bodyLen = strlen(_body);
@@ -82,39 +107,43 @@ const char *Message::getBody() const {
 
 MessageType Message:: _letterToType(char typeLetter) const {
   if (typeLetter == 'Q')
-  return Request;
+    return Request;
   else if (typeLetter == 'R')
-  return Reply;
+    return Reply;
   else if (typeLetter == 'C')
-  return Connect;
+    return Connect;
   else if (typeLetter == 'A')
-  return Acknowledge;
+    return Acknowledge;
   else if (typeLetter == 'Y')
-  return Accept;
+    return Accept;
   else if (typeLetter == 'P')
-  return Ping;
+    return Ping;
   else if (typeLetter == 'T')
-  return Terminate;
+    return Terminate;
+  else if (typeLetter == 'F')
+    return Packet;
   else
-  return Unknown;
+    return Unknown;
 }
 char Message::_typeToLetter(MessageType type) const {
   if (type == Request)
-  return 'Q';
+    return 'Q';
   else if (type == Reply)
-  return 'R';
+    return 'R';
   else if (type == Connect)
-  return 'C';
+    return 'C';
   else if (type == Accept)
-  return 'Y';
+    return 'Y';
   else if (type == Acknowledge)
-  return 'A';
+    return 'A';
   else if (type == Ping)
-  return 'P';
+    return 'P';
   else if (type == Terminate)
-  return 'T';
+    return 'T';
+  else if (type == Packet)
+    return 'F';
   else
-  return 'U';
+    return 'U';
 }
 
 Message::~Message() {

@@ -163,7 +163,7 @@ void UDPSocket::setPeerAddress(sockaddr_in peer) {
 }
 
 
-ssize_t UDPSocket::sendMessage(Message message){
+ssize_t UDPSocket::sendMessage(Message message) {
   const char *bytes = message.getBytes();
   ssize_t sentBytes = _sendRaw(bytes, strlen(bytes));
   delete bytes;
