@@ -20,6 +20,21 @@ SOBJS = \
  $(OBJ_DIR)/file.o\
  $(OBJ_DIR)/server_main.o
 
+SDOBJS = \
+ $(OBJ_DIR)/thread.o\
+ $(OBJ_DIR)/thread_pool.o\
+ $(OBJ_DIR)/job.o\
+ $(OBJ_DIR)/udp_socket.o\
+ $(OBJ_DIR)/message.o\
+ $(OBJ_DIR)/server.o\
+ $(OBJ_DIR)/logger.o\
+ $(OBJ_DIR)/settings.o\
+ $(OBJ_DIR)/crypto.o\
+ $(OBJ_DIR)/client_node.o\
+ $(OBJ_DIR)/file.o\
+ $(OBJ_DIR)/seeder.o\
+ $(OBJ_DIR)/seeder_main.o
+
 COBJS = \
  $(OBJ_DIR)/thread.o\
  $(OBJ_DIR)/thread_pool.o\
@@ -32,20 +47,23 @@ COBJS = \
  $(OBJ_DIR)/file.o\
  $(OBJ_DIR)/client_main.o
 
-BINARIES = $(BUILD_DIR)/server $(BUILD_DIR)/client
+BINARIES = $(BUILD_DIR)/server $(BUILD_DIR)/client $(BUILD_DIR)/seeder
 CC = g++
 DEBUG = -g
 LIBS = -pthread -lssl -lcrypto -ldl
 CFLAGS = -Wall $(INCLUDE) $(EX_LIB) $(LIBS) -c $(DEBUG)
 LFLAGS = -Wall $(INCLUDE) $(EX_LIB) $(LIBS) $(DEBUG)
 
-all : clean server client
+all : clean server client seeder
 
 server : $(SOBJS)
 	$(CC) $(SOBJS) -o $(BUILD_DIR)/server $(LFLAGS)
 
 client : $(COBJS)
 	$(CC) $(COBJS) -o $(BUILD_DIR)/client $(LFLAGS)
+
+seeder : $(SDOBJS)
+	$(CC) $(SDOBJS) -o $(BUILD_DIR)/seeder $(LFLAGS)
 
 $(OBJ_DIR)/file.o : $(OBJ_DIR)/udp_socket.o
 	$(CC) -c $(SRC_DIR)/file.cpp -o $(OBJ_DIR)/file.o $(LFLAGS)

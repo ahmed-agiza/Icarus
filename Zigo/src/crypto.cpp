@@ -51,7 +51,7 @@ RSA* Crypto::getPubKey(const char* pubKeyFile){
 
   //read public key
   if (PEM_read_RSAPublicKey(rsa_pubkey_file, &rsa_pubkey, NULL, NULL) == NULL) {
-      printf("Error cannot Read file !\n");
+      printf("Error cannot Read file!\n");
       ERR_print_errors_fp(stderr);
   }
 
