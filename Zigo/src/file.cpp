@@ -175,11 +175,11 @@ void File::setOffset(off_t offset) {
   } else {
     char seekOff[32];
     memset(seekOff, 0, 32);
-    sprintf(seekOff, "%d\n%ld", _fd, (long long)offset);
+    sprintf(seekOff, "%d\n%ld", _fd, (long)offset);
     Message seekMessage(Lseek, seekOff);
     ssize_t sentBytes = _socket->sendMessage(seekMessage);
     (void) sentBytes;
-    printf("Offset: %ld\nSent: %s\n", (long long) offset, seekOff);
+    printf("Offset: %ld\nSent: %s\n", (long) offset, seekOff);
 
     uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
 

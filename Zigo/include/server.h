@@ -18,10 +18,6 @@ struct StringCompare {
 };
 
 
-
-#define SERVER_REPLY_TO 4
-#define MAX_JOBS 30
-
 class Server {
 private:
   UDPSocket * _serverSocket;

@@ -122,6 +122,10 @@ MessageType Message:: _letterToType(char typeLetter) const {
     return Accept;
   else if (typeLetter == 'P')
     return Ping;
+  else if (typeLetter == 'G')
+    return Pong;
+  else if (typeLetter == 'U')
+    return Query;
   else if (typeLetter == 'T')
     return Terminate;
   else if (typeLetter == 'F')
@@ -155,6 +159,10 @@ char Message::_typeToLetter(MessageType type) const {
     return 'A';
   else if (type == Ping)
     return 'P';
+  else if (type == Pong)
+    return 'G';
+  else if (type == Query)
+    return 'U';
   else if (type == Terminate)
     return 'T';
   else if (type == Packet)
@@ -172,7 +180,7 @@ char Message::_typeToLetter(MessageType type) const {
   else if (type == Eof)
     return 'E';
   else
-    return 'U';
+    return 'N';
 }
 
 Message::~Message() {

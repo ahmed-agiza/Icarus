@@ -1,10 +1,24 @@
 #include "client.h"
+#include "heartbeat.h"
 
 int main(int argc, char const *argv[]) {
   if ( argc != 2) {
 		printf ("Usage: ./client <server-address>\n");
 		exit(1);
 	}
+
+  try {
+    HeartBeat *heartBeat = new HeartBeat(argv[1], 9999);
+    printf("%d\n", heartBeat->start());
+    heartBeat->wait();
+  } catch (NetworkException &e){
+    Logger::error(e.what());
+  } catch (const char *e) {
+    Logger::error(e);
+  }
+
+
+  return 0;
 
   try {
     Client client(argv[1], 9999);

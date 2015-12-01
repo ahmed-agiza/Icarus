@@ -23,14 +23,13 @@ SOBJS = \
 SDOBJS = \
  $(OBJ_DIR)/thread.o\
  $(OBJ_DIR)/thread_pool.o\
- $(OBJ_DIR)/job.o\
+ $(OBJ_DIR)/seeder_job.o\
  $(OBJ_DIR)/udp_socket.o\
  $(OBJ_DIR)/message.o\
- $(OBJ_DIR)/server.o\
  $(OBJ_DIR)/logger.o\
  $(OBJ_DIR)/settings.o\
  $(OBJ_DIR)/crypto.o\
- $(OBJ_DIR)/client_node.o\
+ $(OBJ_DIR)/seeder_node.o\
  $(OBJ_DIR)/file.o\
  $(OBJ_DIR)/seeder.o\
  $(OBJ_DIR)/seeder_main.o
@@ -39,6 +38,7 @@ COBJS = \
  $(OBJ_DIR)/thread.o\
  $(OBJ_DIR)/thread_pool.o\
  $(OBJ_DIR)/udp_socket.o\
+ $(OBJ_DIR)/heartbeat.o\
  $(OBJ_DIR)/message.o\
  $(OBJ_DIR)/client.o\
  $(OBJ_DIR)/logger.o\
@@ -71,6 +71,12 @@ $(OBJ_DIR)/file.o : $(OBJ_DIR)/udp_socket.o
 $(OBJ_DIR)/udp_socket.o : $(OBJ_DIR)/message.o $(OBJ_DIR)/thread.o
 	$(CC) -c $(SRC_DIR)/udp_socket.cpp -o $(OBJ_DIR)/udp_socket.o $(LFLAGS)
 
+$(OBJ_DIR)/seeder_job.o : $(OBJ_DIR)/thread.o
+	$(CC) -c $(SRC_DIR)/seeder_job.cpp -o $(OBJ_DIR)/seeder_job.o $(LFLAGS)
+
+$(OBJ_DIR)/heartbeat.o : $(OBJ_DIR)/thread.o
+	$(CC) -c $(SRC_DIR)/heartbeat.cpp -o $(OBJ_DIR)/heartbeat.o $(LFLAGS)
+
 $(OBJ_DIR)/job.o : $(OBJ_DIR)/thread.o
 	$(CC) -c $(SRC_DIR)/job.cpp -o $(OBJ_DIR)/job.o $(LFLAGS)
 
@@ -82,6 +88,9 @@ $(OBJ_DIR)/thread_pool.o : $(OBJ_DIR)/thread.o $(OBJ_DIR)/logger.o
 
 $(OBJ_DIR)/message.o : $(OBJ_DIR)/logger.o $(OBJ_DIR)/crypto.o
 	$(CC) -c $(SRC_DIR)/message.cpp -o $(OBJ_DIR)/logger.o $(LFLAGS)
+
+$(OBJ_DIR)/seeder_node.o : $(OBJ_DIR)/logger.o
+	$(CC) -c $(SRC_DIR)/seeder_node.cpp -o $(OBJ_DIR)/seeder_node.o $(LFLAGS)
 
 $(OBJ_DIR)/client_node.o : $(OBJ_DIR)/logger.o
 	$(CC) -c $(SRC_DIR)/client_node.cpp -o $(OBJ_DIR)/client_node.o $(LFLAGS)

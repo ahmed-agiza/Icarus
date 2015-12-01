@@ -3,7 +3,7 @@
 
 Client::Client(const char * hostname, uint16_t port) {
   strcpy(_hostname, hostname);
-  _clientSocket = new UDPSocket();
+  _clientSocket = new UDPSocket;
   _clientSocket->initialize(_hostname, port);
   _establishConnection();
   srand(time(NULL));
@@ -36,7 +36,6 @@ void Client::_establishConnection() {
   Logger::info(connectionPortMessage);
 
   _clientSocket->setPort(_port);
-
 }
 
 //start sending messages from client.
@@ -92,7 +91,7 @@ int Client::start() {
         tempBuff[strlen(tempBuff) - 1] = 0;
         printf("Temp Buff: %s\n", tempBuff);
         off_t offset = (off_t)atol(tempBuff);
-        printf("%d\n", offset);
+        printf("%d\n", (int)offset);
         file->setOffset(offset);
         printf("Offset updated!\n");
       } else if (strcmp(tempBuff, "c") == 0) {

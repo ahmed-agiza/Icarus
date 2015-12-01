@@ -141,7 +141,6 @@ void UDPSocket::closeSocket(){
   }
 }
 
-
 void UDPSocket::setPort(uint16_t port) {
   _peerAddr.sin_port = htons(port);
 }
@@ -161,7 +160,6 @@ sockaddr_in UDPSocket::getPeerAddress() const {
 void UDPSocket::setPeerAddress(sockaddr_in peer) {
   _peerAddr = peer;
 }
-
 
 ssize_t UDPSocket::sendMessage(Message message) {
   const char *bytes = message.getBytes();

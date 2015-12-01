@@ -15,16 +15,18 @@ enum MessageType {
     Connect = 2, // C
     Accept = 3, // A
     Ping = 4, // P
-    Terminate = 5,
-    Acknowledge = 6,
-    Packet = 7, //F
-    Open = 8, //O
-    Close = 9, //X
-    Read = 10, //D
-    Write = 11, //W
-    Lseek = 12, //L
-    Eof = 13, //E
-    Unknown = -1 // U
+    Pong = 5, //G
+    Query = 6, //U
+    Terminate = 7,
+    Acknowledge = 8,
+    Packet = 9, //F
+    Open = 10, //O
+    Close = 11, //X
+    Read = 12, //D
+    Write = 13, //W
+    Lseek = 14, //L
+    Eof = 15, //E
+    Unknown = -1 // N
 };
 
 class Message {

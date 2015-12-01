@@ -20,6 +20,7 @@ public:
   ClientNode *getClient() const;
   void setClient(ClientNode *);
 
+  //TO BE MERGED WITH THE THREAD CLASS!!!!!!!!!!!!
   void setSharedData(void *ptr);
   void *getSharedData() const;
 

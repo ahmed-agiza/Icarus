@@ -1,15 +1,16 @@
-#ifndef CLIENT_H
-#define CLIENT_H
+#ifndef HEARTBEAT_H
+#define HEARTBEAT_H
 
+#include "thread.h"
 #include "udp_socket.h"
-#include "file.h"
+#include "client_node.h"
 
+enum State {
+  Connected,
+  Disconnected
+};
 
-/*#define MAX_RETRY 3
-#define CLIENT_REPLY_TO 3*/
-
-class Client {
-private:
+class HeartBeat : public Thread {
   UDPSocket * _clientSocket;
   uint16_t _port;
   char _hostname[128];
@@ -17,12 +18,16 @@ private:
   Message _getReplyTimeout(time_t seconds = 0, suseconds_t mseconds = 0);
   void _establishConnection(); //connect to server
   ssize_t _sendMessage(Message message);
+  State _state;
 public:
-  Client(const char * hostname, uint16_t port);
-  int start(); //
+  HeartBeat(const char * hostname, uint16_t port);
+  void run(); //
+  bool reset();
+  void stop();
 
 
   //Message * execute(Message * _message);
-  ~Client();
+  ~HeartBeat();
 };
-#endif // CLIENT_H
+
+#endif //HEARTBEAT_H
