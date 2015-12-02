@@ -38,6 +38,8 @@ public:
   int lock() const;
   int tryLock() const;
   int unlock() const;
+  int pause(pthread_mutex_t *cvLock) const;
+  int resume() const;
   int lock(pthread_mutex_t *lock) const;
   int tryLock(pthread_mutex_t *lock) const;
   int unlock(pthread_mutex_t *lock) const;

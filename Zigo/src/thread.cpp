@@ -138,6 +138,13 @@ int Thread::unlock(pthread_mutex_t *lock) const {
   return LOCK_FAILED;
 }
 
+int Thread::pause(pthread_mutex_t *cvLock) const {
+  return pthread_cond_wait(_cv, cvLock);
+}
+int Thread::resume() const {
+  return pthread_cond_signal(_cv);
+}
+
 Thread::~Thread() {
   if(_thread)
     delete _thread;

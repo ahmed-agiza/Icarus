@@ -36,33 +36,49 @@ void SeederJob::run() {
   (*clients)[(char *)_client->getClientId()] = _client;
   unlock();
 
-  while(1){
+  printf("%s\n", _client->getClientId());
+
+  bool clientTerminated = false;
+
+  while(!clientTerminated){
     Message request;
-    while(1) {
+    while(!clientTerminated) {
       try {
         if(_terminationRequest()) {
           break;
         }
-        request = handlerSocket->recvMessageTimeout(10, 0);
+        request = handlerSocket->recvMessageTimeout(20, 0);
       } catch (ReceiveTimeoutException &timeout) {
-        continue;
+        clientTerminated = true;
       }
       break;
     }
 
-    if(_terminationRequest()) {
+    if(clientTerminated || _terminationRequest()) {
       char serverTerminationMessage[LOG_MESSAGE_LENGTH];
       sprintf(serverTerminationMessage, "Closing %lu because of thread termination..", currentId);
       Logger::info(serverTerminationMessage);
       break;
     }
 
-    char newConnectionMessage[LOG_MESSAGE_LENGTH];
+    /*char newConnectionMessage[LOG_MESSAGE_LENGTH];
     sprintf(newConnectionMessage, "Ping from %s(%d): %s", handlerSocket->getPeerName(), handlerSocket->getPortNumber(), request.getBody());
     Logger::info(newConnectionMessage);
-    fflush(stdout);
-
-    if(request.getType() != Ping) {
+    fflush(stdout);*/
+    if (request.getType() == Query) {
+      char result[5000];
+      lock();
+      for (std::map<char *, SeederNode *, StringCompare>::iterator it = clients->begin(); it != clients->end(); ++it) {
+        SeederNode *client = it->second;
+        strcat(result, client->getClientId());
+        strcat(result, ";");
+      }
+      unlock();
+      Message resultMessage(Reply, result);
+      ssize_t sentResult = handlerSocket->sendMessage(resultMessage);
+      (void) sentResult;
+      continue;
+    } else if (request.getType() != Ping) {
       char invalidRequestMessage[LOG_MESSAGE_LENGTH];
       sprintf(invalidRequestMessage, "Invalid request type: %s", request.getBytes());
       Logger::error(invalidRequestMessage);
@@ -76,6 +92,7 @@ void SeederJob::run() {
     ssize_t sentPong = handlerSocket->sendMessage(pingReply);
     (void)sentPong;
   }
+  printf("Client disconneced!\n");
   lock();
   clients->erase((char *)_client->getClientId());
   unlock();
@@ -104,8 +121,6 @@ void SeederJob::setSharedData(void *ptr) {
 void *SeederJob::getSharedData() const {
   return _shared;
 }
-
-
 
 SeederJob::~SeederJob(){
 

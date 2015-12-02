@@ -2,18 +2,22 @@
 
 
 ClientNode::ClientNode(const char *id): _socket(0) {
+  memset(_clientId, 0, 128);
   strcpy(_clientId, id);
 }
 
 ClientNode::ClientNode(const char *id, UDPSocket *socket): _socket(socket) {
+  memset(_clientId, 0, 128);
   strcpy(_clientId, id);
 }
 
 ClientNode::ClientNode(const ClientNode &other): _socket(other._socket){
+  memset(_clientId, 0, 128);
   strcpy(_clientId, other._clientId);
 }
 
 void ClientNode::setClientId(const char *id) {
+  memset(_clientId, 0, 128);
   strcpy(_clientId, id);
 }
 
@@ -35,7 +39,6 @@ void ClientNode::setPort(uint16_t port) {
 uint16_t ClientNode::getPort() {
   return _port;
 }
-
 
 void ClientNode::setJob(Job *job) {
   _reponderJob = job;

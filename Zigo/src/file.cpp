@@ -15,7 +15,6 @@ File *File::open(const char *pathname, int flags) {
   return file;
 }
 
-
 File *File::open(const char *pathname, int flags, mode_t mode) {
   File *file = new File;
   file->_isLocal = true;
@@ -47,6 +46,15 @@ File *File::ropen(UDPSocket *socket, char *fileId) {
   file->_isLocal = false;
   file->_isEOF = false;
   return file;
+}
+
+bool File::exists(const char *filename){
+    FILE *file;
+    if ((file = fopen(filename, "r"))){
+        fclose(file);
+        return 1;
+    }
+    return 0;
 }
 
 File::File(const File &other) {
@@ -86,7 +94,6 @@ bool File::isLocal() const {
 bool File::isEOF() const {
   return _isEOF;
 }
-
 
 ssize_t File::read(void *buf, size_t count) {
   if (isLocal()) {

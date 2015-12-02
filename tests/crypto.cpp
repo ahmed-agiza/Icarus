@@ -46,6 +46,7 @@ RSA* Crypto::getPrivateKey(const char* priKeyFile){
     return rsaPrivateKey;
 }
 
+
 RSA* Crypto::getPublicKey(const char* pubKeyFile){
     RSA *rsaPublicKey = NULL;
 
@@ -84,6 +85,8 @@ int Crypto::encrypt(char* rsaPublicKey, const char* msg, char* encrypted) {
   return encrypt(publicKey, msg, encrypted);
 }
 
+
+
 int Crypto::decrypt(RSA* rsaPrivateKey, const char* msg, char* decrypted) {
     char *err = (char *)malloc(130);
     if(RSA_private_decrypt(RSA_size(rsaPrivateKey), (unsigned char*)msg, (unsigned char*)decrypted,
@@ -108,17 +111,42 @@ int Crypto::md5Hash(char *msg, char *hash) {
   unsigned char c[MD5_DIGEST_LENGTH];
 
   MD5_CTX mdContext;
+  int bytes;
+  unsigned char data[1024];
 
 
   MD5_Init (&mdContext);
   MD5_Update (&mdContext, msg, strlen(msg));
   MD5_Final (c, &mdContext);
-
   int charCount = 0;
-
   for(int i = 0; i < MD5_DIGEST_LENGTH; i++) {
     charCount = sprintf(hash, "%s%02x", hash, c[i]);
   }
 
   return charCount;
 }
+
+/*int Crypto::md5Hash(char *fileName, char *hash) {
+  unsigned char c[MD5_DIGEST_LENGTH];
+  int i;
+  FILE *inFile = fopen (fileName, "rb");
+  MD5_CTX mdContext;
+  int bytes;
+  unsigned char data[1024];
+
+  if (inFile == NULL) {
+   printf ("%s can't be opened.\n", fileName);
+   return 0;
+  }
+
+  MD5_Init (&mdContext);
+  while ((bytes = fread (data, 1, 1024, inFile)) != 0)
+    MD5_Update (&mdContext, data, bytes);
+  MD5_Final (c,&mdContext);
+  for(i = 0; i < MD5_DIGEST_LENGTH; i++) {
+
+    sprintf(hash, "%s%02x", hash, c[i]);
+  }
+  fclose (inFile);
+  return 0;
+}*/

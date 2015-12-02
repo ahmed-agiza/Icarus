@@ -73,7 +73,9 @@ void Seeder::serveRequest(Message  &request) {
     _sendMessage(portReplyMessage);
 
     SeederJob *job = dynamic_cast<SeederJob *>(_jobsPool.acquire());
+    printf("Creating client..\n");
     SeederNode *client = _addClient(connectionStr, clientPort, job);
+    printf("Created client node!\n");
     client->setSocket(handlerSocket);
     job->setClient(client);
     job->setSharedData((SeedersMap *)&_clients);
@@ -93,15 +95,13 @@ size_t Seeder::getJobCount() const {
   return _jobCount;
 }
 
-SeederNode *Seeder::_addClient(char *id, int port, SeederJob *job) {
-  if(_clients.find(id) != _clients.end())
-    return _clients[id];
+SeederNode *Seeder::_addClient(char *key, int port, SeederJob *job) {
+  if(_clients.find(key) != _clients.end())
+    return _clients[key];
 
-  SeederNode *client = new SeederNode(id);
+  SeederNode *client = new SeederNode(key);
   client->setPort(port);
   client->setJob(job);
-
-  _clients[id] = client;
 
   return client;
 }

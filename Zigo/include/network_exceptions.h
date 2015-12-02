@@ -25,6 +25,14 @@ public:
 	}
 };
 
+class InvalidOperationContext : public NetworkException {
+public:
+	virtual const char* what() const throw() {
+		return "An operation has been called in invalid context.";
+	}
+};
+
+
 class ThreadCreationException : public NetworkException {
 public:
 	virtual const char* what() const throw() {

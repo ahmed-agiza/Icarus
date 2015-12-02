@@ -13,15 +13,14 @@ class SeederNode {
   char _clientId[128];
   char _username[128];
   UDPSocket *_socket;
-  RSA *_pubKey;
+  char _publicKey[2048];
   uint16_t _port;
   SeederJob *_reponderJob;
 
 public:
+  SeederNode(const char *publicKey);
 
-  SeederNode(const char *id);
-
-  SeederNode(const char *id, UDPSocket *socket, RSA *pubKey);
+  SeederNode(const char *publicKey, UDPSocket *socket);
 
   SeederNode(const SeederNode &other);
 
@@ -41,8 +40,8 @@ public:
 
   SeederJob *getJob();
 
-  RSA *getPublicKey();
-  void setPublicKey(RSA *pubKey);
+  const char *getPublicKey();
+  void setPublicKey(const char *publicKey);
 
   const char *getUsername();
   void setUsername(const char *username);

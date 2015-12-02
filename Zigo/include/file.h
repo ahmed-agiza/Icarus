@@ -18,6 +18,9 @@ public:
   static File *open(const char *pathname, int flags);
   static File *open(const char *pathname, int flags, mode_t mode);
   static File *ropen(UDPSocket *socket, char *fileId);
+
+  static bool exists(const char *filename);
+
   File duplicate(const File &other);
   const char *getFileId() const;
   bool isLocal() const;

@@ -1,15 +1,25 @@
 #include "seeder_node.h"
 
+SeederNode::SeederNode(const char *publicKey): _socket(0) {
+  memset(_clientId, 0, 128);
+  memset(_username, 0, 128);
+  memset(_publicKey, 0, 128);
 
-SeederNode::SeederNode(const char *id): _socket(0) {
-  strcpy(_clientId, id);
+  strcpy(_publicKey, publicKey);
+  Crypto::md5Hash(_publicKey, _clientId);
 }
 
-SeederNode::SeederNode(const char *id, UDPSocket *socket, RSA *pubKey): _socket(socket), _pubKey(pubKey) {
-  strcpy(_clientId, id);
+SeederNode::SeederNode(const char *publicKey, UDPSocket *socket): _socket(socket) {
+  memset(_clientId, 0, 128);
+  memset(_username, 0, 128);
+  memset(_publicKey, 0, 128);
+
+  strcpy(_publicKey, publicKey);
+  Crypto::md5Hash(_publicKey, _clientId);
 }
 
 SeederNode::SeederNode(const SeederNode &other): _socket(other._socket){
+  strcpy(_publicKey, other._publicKey);
   strcpy(_clientId, other._clientId);
 }
 
@@ -36,13 +46,13 @@ uint16_t SeederNode::getPort() {
   return _port;
 }
 
-RSA *SeederNode::getPublicKey() {
-  return _pubKey;
-}
-void SeederNode::setPublicKey(RSA *pubKey) {
-  _pubKey = pubKey;
+const char *SeederNode::getPublicKey() {
+  return _publicKey;
 }
 
+void SeederNode::setPublicKey(const char *publicKey) {
+  strcpy(_publicKey, publicKey);
+}
 
 void SeederNode::setJob(SeederJob *job) {
   _reponderJob = job;

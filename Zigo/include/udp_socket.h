@@ -21,6 +21,8 @@
 #include "network_exceptions.h"
 #include "settings.h"
 
+#define PUBLIC_KEY_PATH "./rsa.pub"
+#define PRIVATE_KEY_PATH "./rsa.pri"
 
 class UDPSocket {
 protected:
