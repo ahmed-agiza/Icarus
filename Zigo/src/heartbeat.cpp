@@ -1,6 +1,5 @@
 #include "heartbeat.h"
 
-
 HeartBeat::HeartBeat(const char * hostname, uint16_t port):Thread() {
   _currentOperation = Pinging;
   _resultState = Steady;
@@ -71,7 +70,6 @@ void HeartBeat::_establishConnection() {
   Logger::info(connectionPortMessage);
 
   _clientSocket->setPort(_port);
-
 }
 
 //start sending messages from client.
@@ -98,40 +96,40 @@ void HeartBeat::run() {
 
       while(!success && retry < (int)maxRetry) { //try to re-send packet if failed within MAX_RETRY
 
-          sentBytes = _sendMessage(pingMessage); //send message to server
+        sentBytes = _sendMessage(pingMessage); //send message to server
 
-          if(sentBytes < 0) {
-            success = false;
+        if(sentBytes < 0) {
+          success = false;
+          continue;
+        }
+
+        Message pongReply;
+
+        try {
+          pongReply = _getReplyTimeout(clientReplyTo, 0);
+        } catch (ReceiveTimeoutException &e) {
+          retry++;
+          if(retry < (int)maxRetry){
+            char retryMessage[LOG_MESSAGE_LENGTH];
+            sprintf(retryMessage, "Retrying to ping(%d)..", retry);
+            Logger::warn(retryMessage);
             continue;
+          } else {
+            success = false;
+            _state = Disconnected;
+            break;
           }
-
-          Message pongReply;
-
-          try {
-            pongReply = _getReplyTimeout(clientReplyTo, 0);
-          } catch (ReceiveTimeoutException &e) {
-            retry++;
-            if(retry < (int)maxRetry){
-              char retryMessage[LOG_MESSAGE_LENGTH];
-              sprintf(retryMessage, "Retrying to ping(%d)..", retry);
-              Logger::warn(retryMessage);
-              continue;
-            } else {
-              success = false;
-              _state = Disconnected;
-              break;
-            }
-          }
-          if (pongReply.getType() != Pong) {
-            char invalidReplyMessage[LOG_MESSAGE_LENGTH];
-            sprintf(invalidReplyMessage, "Invalid reply: %s", pongReply.getBytes());
-            Logger::error(invalidReplyMessage);
-            throw InvalidReplyException();
-          }
-          //printf("Received pong!\n");
-          _state = Connected;
-          success = true;
-          break;
+        }
+        if (pongReply.getType() != Pong) {
+          char invalidReplyMessage[LOG_MESSAGE_LENGTH];
+          sprintf(invalidReplyMessage, "Invalid reply: %s", pongReply.getBytes());
+          Logger::error(invalidReplyMessage);
+          throw InvalidReplyException();
+        }
+        //printf("Received pong!\n");
+        _state = Connected;
+        success = true;
+        break;
 
       }
       if(!success){
@@ -149,9 +147,9 @@ void HeartBeat::run() {
       try {
         resultReply = _getReplyTimeout(clientReplyTo, 0);
       } catch (ReceiveTimeoutException &e) {
-          success = false;
-          _state = Disconnected;
-          break;
+        success = false;
+        _state = Disconnected;
+        break;
       }
       if (resultReply.getType() != Reply) {
         char invalidReplyMessage[LOG_MESSAGE_LENGTH];
@@ -167,7 +165,6 @@ void HeartBeat::run() {
       unlock();
       _state = Connected;
     }
-
   }
 }
 
@@ -194,7 +191,6 @@ void HeartBeat::fetchResults(char *buf) {
 
 bool HeartBeat::reset() {
   stop();
-
   return true;
 }
 

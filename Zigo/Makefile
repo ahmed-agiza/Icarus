@@ -18,6 +18,7 @@ SOBJS = \
  $(OBJ_DIR)/crypto.o\
  $(OBJ_DIR)/client_node.o\
  $(OBJ_DIR)/file.o\
+ $(OBJ_DIR)/peer.o\
  $(OBJ_DIR)/server_main.o
 
 SDOBJS = \
@@ -32,6 +33,7 @@ SDOBJS = \
  $(OBJ_DIR)/seeder_node.o\
  $(OBJ_DIR)/file.o\
  $(OBJ_DIR)/seeder.o\
+ $(OBJ_DIR)/peer.o\
  $(OBJ_DIR)/seeder_main.o
 
 COBJS = \
@@ -45,6 +47,7 @@ COBJS = \
  $(OBJ_DIR)/settings.o\
  $(OBJ_DIR)/crypto.o\
  $(OBJ_DIR)/file.o\
+ $(OBJ_DIR)/peer.o\
  $(OBJ_DIR)/client_main.o
 
 BINARIES = $(BUILD_DIR)/server $(BUILD_DIR)/client $(BUILD_DIR)/seeder
@@ -94,6 +97,9 @@ $(OBJ_DIR)/seeder_node.o : $(OBJ_DIR)/logger.o
 
 $(OBJ_DIR)/client_node.o : $(OBJ_DIR)/logger.o
 	$(CC) -c $(SRC_DIR)/client_node.cpp -o $(OBJ_DIR)/client_node.o $(LFLAGS)
+
+$(OBJ_DIR)/peer.o : $(OBJ_DIR)/logger.o
+	$(CC) -c $(SRC_DIR)/peer.cpp -o $(OBJ_DIR)/peer.o $(LFLAGS)
 
 $(OBJ_DIR)/logger.o : $(OBJ_DIR)/settings.o
 	$(CC) $(LFLAGS) -c $(SRC_DIR)/logger.cpp -o $(OBJ_DIR)/message.o $(LFLAGS)
