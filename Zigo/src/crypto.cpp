@@ -104,6 +104,143 @@ int Crypto::decrypt(char* rsaPrivateKey, const char* msg, char* decrypted) {
   return decrypt(privateKey, msg, decrypted);
 }
 
+size_t Crypto::base64Len(const char* decoded) {
+	size_t len = strlen(decoded),
+	padding = 0;
+
+	if (decoded[len-1] == '=' && decoded[len-2] == '=') //last two chars are =
+	padding = 2;
+	else if (decoded[len-1] == '=') //last char is =
+	padding = 1;
+
+	return (len*3)/4 - padding;
+}
+int Crypto::base64Encode(const void* msg, size_t msgLength, char* encoded, size_t encodedLength) {
+	static const char base64chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	const uint8_t *data = (const uint8_t *)msg;
+	size_t resultIndex = 0;
+	uint32_t dataInt = 0;
+	int padCount = msgLength % 3;
+	uint8_t firstByte, secondByte, thirdByte, fourthByte;
+
+	for (size_t i = 0; i < msgLength; i += 3) {
+		/* these three 8-bit (ASCII) characters become one 24-bit number */
+		dataInt = ((uint32_t)data[i]) << 16; //parenthesis needed, compiler depending on flags can do the shifting before conversion to uint32_t, resulting to 0
+
+		if((i + 1) < msgLength)
+		dataInt += ((uint32_t)data[i+1]) << 8;//parenthesis needed, compiler depending on flags can do the shifting before conversion to uint32_t, resulting to 0
+
+		if((i + 2) < msgLength)
+		dataInt += data[i+2];
+
+		firstByte = (uint8_t)(dataInt >> 18) & 63;
+		secondByte = (uint8_t)(dataInt >> 12) & 63;
+		thirdByte = (uint8_t)(dataInt >> 6) & 63;
+		fourthByte = (uint8_t)dataInt & 63;
+
+		if(resultIndex >= encodedLength)
+			return ERROR_SMALL_BUFFER;   /* indicate failure: buffer too small */
+		encoded[resultIndex++] = base64chars[firstByte];
+    if(resultIndex >= encodedLength)
+      return ERROR_SMALL_BUFFER;   /* indicate failure: buffer too small */
+		encoded[resultIndex++] = base64chars[secondByte];
+
+
+		if((i + 1) < msgLength) {
+			if(resultIndex >= encodedLength)
+        return ERROR_SMALL_BUFFER;   /* indicate failure: buffer too small */
+			encoded[resultIndex++] = base64chars[thirdByte];
+		}
+
+		/*
+		* if we have all three bytes available, then their encoding is spread
+		* decoded over four characters
+		*/
+		if((i + 2) < msgLength) {
+			if(resultIndex >= encodedLength)
+        return ERROR_SMALL_BUFFER;   /* indicate failure: buffer too small */
+			encoded[resultIndex++] = base64chars[fourthByte];
+		}
+	}
+
+	/*
+	* create and add padding that is required if we did not have a multiple of 3
+	* number of characters available
+	*/
+	if (padCount > 0) {
+		for (; padCount < 3; padCount++) {
+			if(resultIndex >= encodedLength)
+        return ERROR_SMALL_BUFFER;   /* indicate failure: buffer too small */
+			encoded[resultIndex++] = '=';
+		}
+	}
+
+	if(resultIndex >= encodedLength)
+    return ERROR_SMALL_BUFFER;   /* indicate failure: buffer too small */
+	encoded[resultIndex] = 0;
+	return 0;   /* indicate success */
+}
+
+int Crypto::base64Decode(char *msg, size_t messageLength, unsigned char *decoded, size_t *decodedLength) {
+	static const unsigned char ascii[] = {
+		66,66,66,66,66,66,66,66,66,66,64,66,66,66,66,66,66,66,66,66,66,66,66,66,66,
+		66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,62,66,66,66,63,52,53,
+		54,55,56,57,58,59,60,61,66,66,66,65,66,66,66, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+		10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,66,66,66,66,66,66,26,27,28,
+		29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,66,66,
+		66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,
+		66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,
+		66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,
+		66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,
+		66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,66,
+		66,66,66,66,66,66
+	};
+	char *end = msg + messageLength;
+	char iter = 0;
+	size_t buf = 0, len = 0;
+
+	while (msg < end) {
+		unsigned char c = ascii[(size_t)(*msg++)];
+
+		switch (c) {
+			case WHITESPACE:
+        continue;   /* skip whitespace */
+			case INVALID:
+        return ERROR_INVALID_INPUT;   /* invalid input, return error */
+			case EQUALS:                 /* pad character, end of data */
+			  msg = end;
+			  continue;
+			default:
+  			buf = buf << 6 | c;
+  			iter++; // increment the number of iteration
+  			/* If the buffer is full, split it into bytes */
+  			if (iter == 4) {
+  				if ((len += 3) > *decodedLength)
+            return ERROR_SMALL_BUFFER; /* buffer overflow */
+  				*(decoded++) = (buf >> 16) & 255;
+  				*(decoded++) = (buf >> 8) & 255;
+  				*(decoded++) = buf & 255;
+  				buf = 0; iter = 0;
+
+  			}
+		}
+	}
+
+	if (iter == 3) {
+		if ((len += 2) > *decodedLength)
+      return ERROR_SMALL_BUFFER; /* buffer overflow */
+		*(decoded++) = (buf >> 10) & 255;
+		*(decoded++) = (buf >> 2) & 255;
+	} else if (iter == 2) {
+		if (++len > *decodedLength)
+      return ERROR_SMALL_BUFFER; /* buffer overflow */
+		*(decoded++) = (buf >> 4) & 255;
+	}
+
+	*decodedLength = len;
+	return 0;
+}
+
 int Crypto::md5Hash(char *msg, char *hash) {
   unsigned char c[MD5_DIGEST_LENGTH];
 

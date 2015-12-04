@@ -1,3 +1,5 @@
+.PHONY: all server client seeder pre
+
 BUILD_DIR = ./build
 SRC_DIR = ./src
 INCLUDE_DIR = ./include
@@ -5,6 +7,7 @@ OBJ_DIR = ./obj
 EX_LIB_DIR = /usr/lib
 INCLUDE = -I$(INCLUDE_DIR)/
 EX_LIB = -L$(EX_LIB_DIR)
+STEGHIDE_EXISTS = $(shell which steghide)
 
 SOBJS = \
  $(OBJ_DIR)/thread.o\
@@ -19,6 +22,7 @@ SOBJS = \
  $(OBJ_DIR)/client_node.o\
  $(OBJ_DIR)/file.o\
  $(OBJ_DIR)/peer.o\
+ $(OBJ_DIR)/steganography.o\
  $(OBJ_DIR)/server_main.o
 
 SDOBJS = \
@@ -48,6 +52,7 @@ COBJS = \
  $(OBJ_DIR)/crypto.o\
  $(OBJ_DIR)/file.o\
  $(OBJ_DIR)/peer.o\
+ $(OBJ_DIR)/steganography.o\
  $(OBJ_DIR)/client_main.o
 
 BINARIES = $(BUILD_DIR)/server $(BUILD_DIR)/client $(BUILD_DIR)/seeder
@@ -57,16 +62,25 @@ LIBS = -pthread -lssl -lcrypto -ldl
 CFLAGS = -Wall $(INCLUDE) $(EX_LIB) $(LIBS) -c $(DEBUG)
 LFLAGS = -Wall $(INCLUDE) $(EX_LIB) $(LIBS) $(DEBUG)
 
-all : clean server client seeder
+pre :
+ifeq ($(STEGHIDE_EXISTS),)
+	$(error cannot locate steghide)
+	exit 1;
+endif
 
-server : $(SOBJS)
+all : pre clean server client seeder
+
+server : pre $(SOBJS)
 	$(CC) $(SOBJS) -o $(BUILD_DIR)/server $(LFLAGS)
 
-client : $(COBJS)
+client : pre $(COBJS)
 	$(CC) $(COBJS) -o $(BUILD_DIR)/client $(LFLAGS)
 
-seeder : $(SDOBJS)
+seeder : pre $(SDOBJS)
 	$(CC) $(SDOBJS) -o $(BUILD_DIR)/seeder $(LFLAGS)
+
+$(OBJ_DIR)/steganography.o : $(OBJ_DIR)/file.o
+	$(CC) -c $(SRC_DIR)/steganography.cpp -o $(OBJ_DIR)/steganography.o $(LFLAGS)
 
 $(OBJ_DIR)/file.o : $(OBJ_DIR)/udp_socket.o
 	$(CC) -c $(SRC_DIR)/file.cpp -o $(OBJ_DIR)/file.o $(LFLAGS)

@@ -1,7 +1,24 @@
 #include "client.h"
 #include "heartbeat.h"
+#include <stdint.h>
+#include <string.h>
 
 int main(int argc, char const *argv[]) {
+  char message[1024];
+  char encoded[2048];
+  char decoded[2048];
+  while(1) {
+    memset(message, 0, 1024);
+    memset(encoded, 0, 2048);
+    memset(decoded, 0, 2048);
+    scanf("%s", message);
+    size_t encodedSize = 2048, decodedSize = 2048;
+    Crypto::base64Encode((unsigned char *)message, strlen(message), encoded, encodedSize);
+    printf("Encoded(%d): %s\n", (int)encodedSize, encoded);
+    Crypto::base64Decode(encoded, strlen(encoded), (unsigned char *)decoded, &decodedSize);
+    printf("Decoded(%d): %s\n", (int)decodedSize, decoded);
+  }
+  return 0;
   if ( argc != 2) {
 		printf ("Usage: ./client <server-address>\n");
 		exit(1);

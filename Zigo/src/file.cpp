@@ -6,6 +6,8 @@ File::File() {
 
 File *File::open(const char *pathname, int flags) {
   File *file = new File;
+  memset(file->_filePath, 0, PATH_MAX);
+  strcpy(file->_filePath, pathname);
   file->_isLocal = true;
   file->_socket = 0;
   file->_isOpen = true;
@@ -18,6 +20,7 @@ File *File::open(const char *pathname, int flags) {
 File *File::open(const char *pathname, int flags, mode_t mode) {
   File *file = new File;
   file->_isLocal = true;
+  file->_socket = 0;
   file->_fd = ::open(pathname, flags, mode);
   file->_isOpen = true;
   file->_offset = 0;
@@ -57,6 +60,65 @@ bool File::exists(const char *filename){
     return 0;
 }
 
+int File::remove(const char *filePath) {
+  return ::remove(filePath);
+}
+
+
+void File::joinPaths(char* destination, const char* path1, const char* path2) {
+    if(path1 == NULL && path2 == NULL) {
+        strcpy(destination, "");;
+    }
+    else if(path2 == NULL || strlen(path2) == 0) {
+        strcpy(destination, path1);
+    }
+    else if(path1 == NULL || strlen(path1) == 0) {
+        strcpy(destination, path2);
+    }
+    else {
+        char directory_separator[] = "/";
+
+        const char *last_char = path1;
+        while(*last_char != '\0')
+            last_char++;
+        int append_directory_separator = 0;
+        if(strcmp(last_char, directory_separator) != 0) {
+            append_directory_separator = 1;
+        }
+        strcpy(destination, path1);
+        if(append_directory_separator)
+            strcat(destination, directory_separator);
+        strcat(destination, path2);
+    }
+}
+
+void File::createDirIfNotExists(const char *dir) {
+  struct stat st = {0};
+
+  if (stat(dir, &st) == -1) {
+      mkdirRecursive(dir);
+  }
+
+}
+
+void File::mkdirRecursive(const char *dir) {
+  char tmp[256];
+  char *p = NULL;
+  size_t len;
+
+  snprintf(tmp, sizeof(tmp),"%s",dir);
+  len = strlen(tmp);
+  if(tmp[len - 1] == '/')
+    tmp[len - 1] = 0;
+  for(p = tmp + 1; *p; p++)
+  if(*p == '/') {
+    *p = 0;
+    mkdir(tmp, S_IRWXU);
+    *p = '/';
+  }
+  mkdir(tmp, S_IRWXU);
+}
+
 File::File(const File &other) {
   if (other.isLocal()) {
     _fd = other._fd;
@@ -81,6 +143,10 @@ File File::duplicate(const File &other) {
   file._isOpen = other._isOpen;
   file._offset = other._offset;
   return file;
+}
+
+void File::getWorkingDirectory(char *buf, size_t bufSize) {
+  getcwd(buf, bufSize);
 }
 
 bool File::isOpen() const {
@@ -234,6 +300,21 @@ int File::close() {
     return atoi(replyMessage.getBody());
   }
   return -1;
+}
+
+int File::remove() {
+  if (isLocal()){
+    const char *filePath = getFilePath();
+    return remove(filePath);
+  }
+  return -1;
+}
+
+const char *File::getFilePath() const {
+  if (isLocal()) {
+    return _filePath;;
+  }
+  return _fileId;
 }
 
 int File::getFd() {

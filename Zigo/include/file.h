@@ -4,6 +4,9 @@
 #include "message.h"
 #include "udp_socket.h"
 
+#include <linux/limits.h>
+#include <fcntl.h>
+
 class File {
   int _fd;
   char _fileId[1024];
@@ -12,6 +15,7 @@ class File {
   UDPSocket *_socket;
   bool _isOpen;
   bool _isEOF;
+  char _filePath[PATH_MAX];
   File();
 public:
   File(const File &other);
@@ -20,11 +24,18 @@ public:
   static File *ropen(UDPSocket *socket, char *fileId);
 
   static bool exists(const char *filename);
+  static int remove(const char *filePath);
+  static void mkdirRecursive(const char *dir);
+  static void createDirIfNotExists(const char *dir);
+  static void joinPaths(char* destination, const char* path1, const char* path2);
+  static void getWorkingDirectory(char *buf, size_t bufSize);
 
   File duplicate(const File &other);
   const char *getFileId() const;
   bool isLocal() const;
   bool isOpen() const;
+  int remove();
+  const char *getFilePath() const;
   ssize_t read(void *buf, size_t count);
   ssize_t write(const void *buf, size_t count);
   void setOffset(off_t offset);
