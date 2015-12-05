@@ -1,0 +1,2 @@
+-1 = Data not set
+-2 = RCount is below zero
