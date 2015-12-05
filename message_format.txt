@@ -1,3 +1,6 @@
 L <Length of the Body>
 T <Type>
+E <Encoding>
+I <ID>
+M <Timestamp>
 B <Body>

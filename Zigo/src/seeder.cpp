@@ -6,6 +6,8 @@ Seeder::Seeder(uint16_t listenPort):_listenPort(listenPort), _jobCount(0) {
   _seederSocket = new UDPSocket;
   _seederSocket->initialize(listenPort);
 
+
+
   if (pthread_mutex_init(&_mapLock, NULL) != 0)
     throw MutexInitializationException();
 
@@ -44,14 +46,49 @@ void Seeder::listen() {
 }
 
 void Seeder::serveRequest(Message  &request) {
-
-  char portReply[32];
+  char portReply[32], username[128], rsa[2048], verificationToken[64], encryptedToken[256];
+  uint32_t seederReplyTo = Settings::getInstance().getServerReplyTimeout();
 
   char *clientAddrName = (char *)inet_ntoa(_seederSocket->getPeerAddress().sin_addr);
   (void)clientAddrName;
 
   char *connectionStr = new char[strlen(request.getBody()) + 1];
   strcpy(connectionStr, request.getBody());
+  if (sscanf(connectionStr, "%[^;]%*c%2048c", username, rsa) != 2) {
+    char invalidConnectionString[LOG_MESSAGE_LENGTH];
+    sprintf(invalidConnectionString, "Invalid connection string %s", connectionStr);
+    Logger::error(invalidConnectionString);
+    delete connectionStr;
+    return;
+  }
+
+  Crypto::generateRandomString(verificationToken, 64);
+
+  int encryptionLength = Crypto::encrypt(rsa, verificationToken, encryptedToken);
+
+  Message verificationMessage(Reply, encryptedToken, SEEDER_ID, DEFAULT_MESSAGE_ID, Base64, encryptionLength);
+  _sendMessage(verificationMessage);
+
+  try {
+    Message verificationReply = _getMessageTimeout(seederReplyTo, 0);
+
+    if (verificationReply.getType() != Verify) {
+      char invalidRequestMessage[LOG_MESSAGE_LENGTH];
+      sprintf(invalidRequestMessage, "Invalid request %s", request.getBody());
+      Logger::error(invalidRequestMessage);
+      return;
+    } else if (strcmp(verificationReply.getBody(), verificationToken) != 0) {
+      char invalidTokenMessage[LOG_MESSAGE_LENGTH];
+      sprintf(invalidTokenMessage, "Invalid token %s != %s", request.getBody(), verificationToken);
+      Logger::error(invalidTokenMessage);
+      return;
+    }
+  } catch (ReceiveTimeoutException &timeout) {
+    return;
+  }
+
+
+
   int checkPort = _getClientPort(connectionStr);
 
   //VERIFY RSA KEY!!!!!!!!!!!!!!!!!
@@ -61,7 +98,7 @@ void Seeder::serveRequest(Message  &request) {
     sprintf(portExistsMessage, "Connection %s already exists on port %d", connectionStr, checkPort);
     Logger::warn(portExistsMessage);
     sprintf(portReply, "%u", checkPort);
-    Message portReplyMessage(Accept, portReply);
+    Message portReplyMessage(Accept, portReply, SEEDER_ID, DEFAULT_MESSAGE_ID);
     _sendMessage(portReplyMessage);
   } else {
     UDPSocket *handlerSocket = new UDPSocket;
@@ -69,16 +106,18 @@ void Seeder::serveRequest(Message  &request) {
     handlerSocket->setMutex(&_mapLock);
     uint16_t clientPort = handlerSocket->initialize(0);
     sprintf(portReply, "%u", clientPort);
-    Message portReplyMessage(Accept, portReply);
+    Message portReplyMessage(Accept, portReply, SEEDER_ID, DEFAULT_MESSAGE_ID);
     _sendMessage(portReplyMessage);
 
     SeederJob *job = dynamic_cast<SeederJob *>(_jobsPool.acquire());
-    printf("Creating client..\n");
-    SeederNode *client = _addClient(connectionStr, clientPort, job);
-    printf("Created client node!\n");
+    job->setId(SEEDER_ID);
+    SeederNode *client = _addClient(rsa, clientPort, job);
     client->setSocket(handlerSocket);
+    client->setUsername(username);
     job->setClient(client);
     job->setSharedData((SeedersMap *)&_clients);
+    job->setParent(this);
+    job->setDoneCallback(_threadDoneWrapper);
 
     if(job->start()) {
       printf("Serving client..\n");
@@ -100,6 +139,7 @@ SeederNode *Seeder::_addClient(char *key, int port, SeederJob *job) {
     return _clients[key];
 
   SeederNode *client = new SeederNode(key);
+
   client->setPort(port);
   client->setJob(job);
 
@@ -141,6 +181,18 @@ ssize_t Seeder::_sendMessage(Message message){
 
 void Seeder::_sendReply() {
 
+}
+
+void *Seeder::_threadDoneWrapper(Thread *thread, void* parent) {
+  SeederJob * job = static_cast<SeederJob *>(thread);
+  Seeder *seeder = static_cast<Seeder *>(parent);
+  seeder->_threadDoneCallback(job);
+  return (void *)thread;
+}
+void Seeder::_threadDoneCallback(SeederJob *job) {
+  printf("Releasing!\n");
+  _jobsPool.release(job);
+  printf("Done!\n");
 }
 
 Seeder::~Seeder() {

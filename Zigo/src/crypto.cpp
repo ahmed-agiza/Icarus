@@ -241,6 +241,17 @@ int Crypto::base64Decode(char *msg, size_t messageLength, unsigned char *decoded
 	return 0;
 }
 
+void Crypto::generateRandomString(char *buf, int length) {
+  static char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  if (length) {
+    for (int i = 0; i < length; i++) {
+      int key = rand() % (int)(sizeof(charset) -1);
+      buf[i] = charset[key];
+    }
+    buf[length] = '\0';
+  }
+}
+
 int Crypto::md5Hash(char *msg, char *hash) {
   unsigned char c[MD5_DIGEST_LENGTH];
 

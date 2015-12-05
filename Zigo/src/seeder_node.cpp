@@ -1,6 +1,6 @@
 #include "seeder_node.h"
 
-SeederNode::SeederNode(const char *publicKey): _socket(0) {
+SeederNode::SeederNode(const char *publicKey): _socket(0), _timestamp((long)time(NULL)){
   memset(_clientId, 0, 128);
   memset(_username, 0, 128);
   memset(_publicKey, 0, 128);
@@ -9,7 +9,7 @@ SeederNode::SeederNode(const char *publicKey): _socket(0) {
   Crypto::md5Hash(_publicKey, _clientId);
 }
 
-SeederNode::SeederNode(const char *publicKey, UDPSocket *socket): _socket(socket) {
+SeederNode::SeederNode(const char *publicKey, UDPSocket *socket): _socket(socket), _timestamp((long)time(NULL)) {
   memset(_clientId, 0, 128);
   memset(_username, 0, 128);
   memset(_publicKey, 0, 128);
@@ -18,9 +18,10 @@ SeederNode::SeederNode(const char *publicKey, UDPSocket *socket): _socket(socket
   Crypto::md5Hash(_publicKey, _clientId);
 }
 
-SeederNode::SeederNode(const SeederNode &other): _socket(other._socket){
+SeederNode::SeederNode(const SeederNode &other): _socket(other._socket), _timestamp(other._timestamp){
   strcpy(_publicKey, other._publicKey);
   strcpy(_clientId, other._clientId);
+  strcpy(_username, other._username);
 }
 
 void SeederNode::setClientId(const char *id) {
@@ -68,6 +69,10 @@ const char *SeederNode::getUsername() {
 
 void SeederNode::setUsername(const char *username) {
   strcpy(_username, username);
+}
+
+long SeederNode::getTimestamp() const {
+  return _timestamp;
 }
 
 SeederNode::~SeederNode() {

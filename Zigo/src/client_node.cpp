@@ -3,17 +3,25 @@
 
 ClientNode::ClientNode(const char *id): _socket(0) {
   memset(_clientId, 0, 128);
+  memset(_username, 0, 128);
   strcpy(_clientId, id);
 }
 
 ClientNode::ClientNode(const char *id, UDPSocket *socket): _socket(socket) {
   memset(_clientId, 0, 128);
+  memset(_username, 0, 128);
   strcpy(_clientId, id);
 }
 
 ClientNode::ClientNode(const ClientNode &other): _socket(other._socket){
   memset(_clientId, 0, 128);
+  memset(_username, 0, 128);
   strcpy(_clientId, other._clientId);
+  strcpy(_username, other._username);
+}
+
+void ClientNode::setUsername(const char *username) {
+  strcpy(_username, username);
 }
 
 void ClientNode::setClientId(const char *id) {

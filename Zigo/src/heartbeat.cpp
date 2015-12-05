@@ -1,18 +1,22 @@
 #include "heartbeat.h"
 
-HeartBeat::HeartBeat(const char * hostname, uint16_t port):Thread() {
+HeartBeat::HeartBeat(const char *username, const char * hostname, uint16_t port):Thread() {
   _currentOperation = Pinging;
   _resultState = Steady;
 
+  memset(_username, 0, 128);
   memset(_id, 0, 128);
   memset(_results, 0, MAX_READ_SIZE);
 
-  if (true || !File::exists(PUBLIC_KEY_PATH) || !File::exists(PRIVATE_KEY_PATH)) {
+  if (!File::exists(PUBLIC_KEY_PATH) || !File::exists(PRIVATE_KEY_PATH)) {
     Crypto::generateKeyPair(PRIVATE_KEY_PATH, PUBLIC_KEY_PATH);
   }
 
+  strcpy(_username, username);
+
   File *publicKeyFile = File::open(PUBLIC_KEY_PATH, O_RDONLY);
   File *privateKeyFile = File::open(PRIVATE_KEY_PATH, O_RDONLY);
+  memset(_id, 0, 128);
   memset(_publicRSA, 0, 2048);
   memset(_privateRSA, 0, 2048);
   publicKeyFile->read(_publicRSA, 2048);
@@ -22,12 +26,15 @@ HeartBeat::HeartBeat(const char * hostname, uint16_t port):Thread() {
   delete publicKeyFile;
   delete privateKeyFile;
 
+  Crypto::md5Hash(_publicRSA, _id);
+  printf("ID: %s\n", _id);
+
   _state = Disconnected;
   strcpy(_hostname, hostname);
   _clientSocket = new UDPSocket;
   _clientSocket->initialize(_hostname, port);
   _establishConnection();
-  srand(time(NULL));
+
 
   if (pthread_mutex_init(&_operationLock, NULL) != 0)
     throw MutexInitializationException();
@@ -40,23 +47,39 @@ HeartBeat::HeartBeat(const char * hostname, uint16_t port):Thread() {
 }
 
 void HeartBeat::_establishConnection() {
-  pid_t pid = getpid();
-  (void) pid;
-  char connectionString[2048];
-  sprintf(connectionString, "%s", _publicRSA);
-  Crypto::md5Hash(_publicRSA, _id);
-  printf("ID: %s\n", _id);
+  //pid_t pid = getpid();
 
-  printf("Connecting using %s\n", connectionString);
-  Message connectionMessage = Message(Connect, connectionString);
+  char connectionString[2176], verificationStr[2048];
+  unsigned char decoded[2048];
+  size_t decodedLength = 2048;
+  sprintf(connectionString, "%s;%s", _username, _publicRSA);
+
+  Message connectionMessage = Message(Connect, connectionString, _id, DEFAULT_MESSAGE_ID);
+
   ssize_t sentBytes = _sendMessage(connectionMessage);
 
   if(sentBytes < 0)
     return;
   uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
+
   printf("Attempting to connect..\n");
+
+  Message tokenReply = _getReplyTimeout(clientReplyTo, 0);
+  if (tokenReply.getType() != Reply) {
+    char invalidReplyMessage[LOG_MESSAGE_LENGTH];
+    sprintf(invalidReplyMessage, "Invalid reply: %s", tokenReply.getBytes());
+    Logger::error(invalidReplyMessage);
+    throw InvalidReplyException();
+  }
+
+  Crypto::base64Decode((char *)tokenReply.getBody(), strlen(tokenReply.getBody()), decoded, &decodedLength);
+  Crypto::decrypt(_privateRSA, (char *)decoded, verificationStr);
+
+  Message verificationMessage(Verify, verificationStr, _id, DEFAULT_MESSAGE_ID);
+  _sendMessage(verificationMessage);
+
   Message portReply = _getReplyTimeout(clientReplyTo, 0);
-  printf("Received!\n");
+
   if (portReply.getType() != Accept) {
     char invalidReplyMessage[LOG_MESSAGE_LENGTH];
     sprintf(invalidReplyMessage, "Invalid reply: %s", portReply.getBytes());
@@ -74,7 +97,6 @@ void HeartBeat::_establishConnection() {
 
 //start sending messages from client.
 void HeartBeat::run() {
-  printf("run()\n");
   bool success; //success if message was sent wihtout any packet loss
   ssize_t sentBytes;  //number of bytes sent to the server
   int retry;
@@ -92,7 +114,7 @@ void HeartBeat::run() {
       success = 0;
       retry = -1;
 
-      pingMessage = Message(Ping, "1"); //wrap the text in message form
+      pingMessage = Message(Ping, "1", _id, DEFAULT_MESSAGE_ID); //wrap the text in message form
 
       while(!success && retry < (int)maxRetry) { //try to re-send packet if failed within MAX_RETRY
 
@@ -141,7 +163,7 @@ void HeartBeat::run() {
 
     } else if (currentOperation == Querying) {
       _resultState = Fetching;
-      Message queryMessage(Query, "1");
+      Message queryMessage(Query, "1", _id, DEFAULT_MESSAGE_ID);
       sentBytes = _sendMessage(queryMessage); //send message to server
       Message resultReply;
       try {

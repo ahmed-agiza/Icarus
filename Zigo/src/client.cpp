@@ -1,45 +1,91 @@
 #include "client.h"
 
 
-Client::Client(const char * hostname, uint16_t port) {
+Client::Client(const char *username, const char * hostname, uint16_t port): Thread() {
   strcpy(_hostname, hostname);
+  strcpy(_username, username);
+  memset(_id, 0, 128);
+
+  if (!File::exists(PUBLIC_KEY_PATH) || !File::exists(PRIVATE_KEY_PATH)) {
+    Crypto::generateKeyPair(PRIVATE_KEY_PATH, PUBLIC_KEY_PATH);
+  }
+
+  File *publicKeyFile = File::open(PUBLIC_KEY_PATH, O_RDONLY);
+  File *privateKeyFile = File::open(PRIVATE_KEY_PATH, O_RDONLY);
+  memset(_id, 0, 128);
+  memset(_publicRSA, 0, 2048);
+  memset(_privateRSA, 0, 2048);
+  publicKeyFile->read(_publicRSA, 2048);
+  privateKeyFile->read(_privateRSA, 2048);
+  publicKeyFile->close();
+  privateKeyFile->close();
+  delete publicKeyFile;
+  delete privateKeyFile;
+
+  Crypto::md5Hash(_publicRSA, _id);
+  printf("ID: %s\n", _id);
+
   _clientSocket = new UDPSocket;
   _clientSocket->initialize(_hostname, port);
   _establishConnection();
-  srand(time(NULL));
+
 }
 
 void Client::_establishConnection() {
-  pid_t pid = getpid();
-  char connectionString[64];
-  sprintf(connectionString, "%s:%ld", "127.0.0.1", (long) pid);
+    //pid_t pid = getpid();
 
-  printf("Connecting using %s\n", connectionString);
-  Message connectionMessage = Message(Connect, connectionString);
-  ssize_t sentBytes = _sendMessage(connectionMessage);
+    char connectionString[2176], verificationStr[2048];
+    unsigned char decoded[2048];
+    size_t decodedLength = 2048;
+    sprintf(connectionString, "%s;%s", _username, _publicRSA);
 
-  if(sentBytes < 0)
-    return;
-  uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
-  Message portReply = _getReplyTimeout(clientReplyTo, 0);
-  if (portReply.getType() != Accept) {
-    char invalidReplyMessage[LOG_MESSAGE_LENGTH];
-    sprintf(invalidReplyMessage, "Invalid reply: %s", portReply.getBytes());
-    Logger::error(invalidReplyMessage);
-    throw InvalidReplyException();
-  }
+    Message connectionMessage = Message(Connect, connectionString, _id, DEFAULT_MESSAGE_ID);
 
+    ssize_t sentBytes = _sendMessage(connectionMessage);
 
-  _port = (uint16_t)strtoull(portReply.getBody(), NULL, 0);
-  char connectionPortMessage[LOG_MESSAGE_LENGTH];
-  sprintf(connectionPortMessage, "Connecting on port: %u", _port);
-  Logger::info(connectionPortMessage);
+    if(sentBytes < 0)
+      return;
+    uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
 
-  _clientSocket->setPort(_port);
+    printf("Attempting to connect..\n");
+
+    Message tokenReply = _getReplyTimeout(clientReplyTo, 0);
+    if (tokenReply.getType() != Reply) {
+      char invalidReplyMessage[LOG_MESSAGE_LENGTH];
+      sprintf(invalidReplyMessage, "Invalid reply: %s", tokenReply.getBytes());
+      Logger::error(invalidReplyMessage);
+      throw InvalidReplyException();
+    }
+
+    Crypto::base64Decode((char *)tokenReply.getBody(), strlen(tokenReply.getBody()), decoded, &decodedLength);
+    Crypto::decrypt(_privateRSA, (char *)decoded, verificationStr);
+
+    Message verificationMessage(Verify, verificationStr, _id, DEFAULT_MESSAGE_ID);
+    _sendMessage(verificationMessage);
+
+    Message portReply = _getReplyTimeout(clientReplyTo, 0);
+
+    if (portReply.getType() != Accept) {
+      char invalidReplyMessage[LOG_MESSAGE_LENGTH];
+      sprintf(invalidReplyMessage, "Invalid reply: %s", portReply.getBytes());
+      Logger::error(invalidReplyMessage);
+      throw InvalidReplyException();
+    }
+
+    _port = (uint16_t)strtoull(portReply.getBody(), NULL, 0);
+    char connectionPortMessage[LOG_MESSAGE_LENGTH];
+    sprintf(connectionPortMessage, "Connecting on port: %u", _port);
+    Logger::info(connectionPortMessage);
+
+    _clientSocket->setPort(_port);
+}
+
+void Client::run() {
+  connect();
 }
 
 //start sending messages from client.
-int Client::start() {
+int Client::connect() {
   char tempBuff[2048]; //max char from user input
   char ackBack[2];
   bool success; //success if message was sent wihtout any packet loss
@@ -62,14 +108,14 @@ int Client::start() {
         printf("Enter file name: ");
         fgets(tempBuff, sizeof tempBuff, stdin);
         tempBuff[strlen(tempBuff) - 1] = 0;
-        file = File::ropen(_clientSocket, tempBuff);
+        file = File::ropen(_clientSocket, tempBuff, _id);
         int fd = file->getFd();
         printf("File descriptor: %d\n", fd);
 
         success = 1;
 
         sprintf(ackBack, "%d", (int) success);
-        Message ackBackReply(Acknowledge, ackBack);
+        Message ackBackReply(Acknowledge, ackBack, _id, DEFAULT_MESSAGE_ID);
 
         sentAckBytes = _sendMessage(ackBackReply);
         (void) sentAckBytes;
@@ -101,7 +147,7 @@ int Client::start() {
       }
       continue;
     } else {
-      requestMessage = Message(Request, tempBuff); //wrap the text in message form
+      requestMessage = Message(Request, tempBuff, _id, DEFAULT_MESSAGE_ID); //wrap the text in message form
     }
 
     uint32_t maxRetry = Settings::getInstance().getRetryTimes();
@@ -135,7 +181,7 @@ int Client::start() {
 
 
       sprintf(ackBack, "%d", (int) success);
-      Message ackBackReply(Acknowledge, ackBack);
+      Message ackBackReply(Acknowledge, ackBack, _id, DEFAULT_MESSAGE_ID);
 
       sentAckBytes = _sendMessage(ackBackReply);
       (void) sentAckBytes;
@@ -180,6 +226,15 @@ int Client::start() {
 
   }
   return 0;
+}
+
+bool Client::reset() {
+  stop();
+  return true;
+}
+
+void Client::stop() {
+  Thread::stop();
 }
 
 Message Client::_getReply() {

@@ -3,6 +3,24 @@
 Server::Server(uint16_t listenPort):_listenPort(listenPort), _terminated(false), _jobCount(0) {
   _jobsPool.initialize(Settings::getInstance().getPoolSize(), true);
 
+  if (!File::exists(PUBLIC_KEY_PATH) || !File::exists(PRIVATE_KEY_PATH)) {
+    Crypto::generateKeyPair(PRIVATE_KEY_PATH, PUBLIC_KEY_PATH);
+  }
+
+  File *publicKeyFile = File::open(PUBLIC_KEY_PATH, O_RDONLY);
+  File *privateKeyFile = File::open(PRIVATE_KEY_PATH, O_RDONLY);
+  memset(_id, 0, 128);
+  memset(_publicRSA, 0, 2048);
+  memset(_privateRSA, 0, 2048);
+  publicKeyFile->read(_publicRSA, 2048);
+  privateKeyFile->read(_privateRSA, 2048);
+  publicKeyFile->close();
+  privateKeyFile->close();
+  delete publicKeyFile;
+  delete privateKeyFile;
+
+  Crypto::md5Hash(_publicRSA, _id);
+
 
   _serverSocket = new UDPSocket;
   _serverSocket->initialize(listenPort);
@@ -24,6 +42,7 @@ void Server::listen() {
           break;
         }
         request = _getMessageTimeout(serverReplyTo, 0);
+
         if (request.getType() != Connect) {
           char invalidRequestMessage[LOG_MESSAGE_LENGTH];
           sprintf(invalidRequestMessage, "Invalid request %s", request.getBody());
@@ -51,13 +70,48 @@ void Server::listen() {
 
 void Server::serveRequest(Message  &request) {
 
-  char portReply[32];
+  char portReply[32], username[128], rsa[2048], verificationToken[64], encryptedToken[256];
+  uint32_t seederReplyTo = Settings::getInstance().getServerReplyTimeout();
 
   char *clientAddrName = (char *)inet_ntoa(_serverSocket->getPeerAddress().sin_addr);
   (void)clientAddrName;
 
   char *connectionStr = new char[strlen(request.getBody()) + 1];
   strcpy(connectionStr, request.getBody());
+  if (sscanf(connectionStr, "%[^;]%*c%2048c", username, rsa) != 2) {
+    char invalidConnectionString[LOG_MESSAGE_LENGTH];
+    sprintf(invalidConnectionString, "Invalid connection string %s", connectionStr);
+    Logger::error(invalidConnectionString);
+    delete connectionStr;
+    return;
+  }
+
+  Crypto::generateRandomString(verificationToken, 64);
+
+  int encryptionLength = Crypto::encrypt(rsa, verificationToken, encryptedToken);
+
+  Message verificationMessage(Reply, encryptedToken, SEEDER_ID, DEFAULT_MESSAGE_ID, Base64, encryptionLength);
+  _sendMessage(verificationMessage);
+
+  try {
+    Message verificationReply = _getMessageTimeout(seederReplyTo, 0);
+
+    if (verificationReply.getType() != Verify) {
+      char invalidRequestMessage[LOG_MESSAGE_LENGTH];
+      sprintf(invalidRequestMessage, "Invalid request %s", request.getBody());
+      Logger::error(invalidRequestMessage);
+      return;
+    } else if (strcmp(verificationReply.getBody(), verificationToken) != 0) {
+      char invalidTokenMessage[LOG_MESSAGE_LENGTH];
+      sprintf(invalidTokenMessage, "Invalid token %s != %s", request.getBody(), verificationToken);
+      Logger::error(invalidTokenMessage);
+      return;
+    }
+  } catch (ReceiveTimeoutException &timeout) {
+    return;
+  }
+
+
   int checkPort = _getClientPort(connectionStr);
 
   if (checkPort > -1) {
@@ -65,20 +119,32 @@ void Server::serveRequest(Message  &request) {
     sprintf(portExistsMessage, "Connection %s already exists on port %d", connectionStr, checkPort);
     Logger::warn(portExistsMessage);
     sprintf(portReply, "%u", checkPort);
-    Message portReplyMessage(Accept, portReply);
+    Message portReplyMessage(Accept, portReply, _id, DEFAULT_MESSAGE_ID);
     _sendMessage(portReplyMessage);
   } else {
+
     UDPSocket *handlerSocket = new UDPSocket;
     handlerSocket->setPeerAddress(_serverSocket->getPeerAddress());
     handlerSocket->setMutex(&_terminationLock);
+
     uint16_t clientPort = handlerSocket->initialize(0);
+
     sprintf(portReply, "%u", clientPort);
-    Message portReplyMessage(Accept, portReply);
+
+    Message portReplyMessage(Accept, portReply, _id, DEFAULT_MESSAGE_ID);
     _sendMessage(portReplyMessage);
 
+
     Job *job = dynamic_cast<Job *>(_jobsPool.acquire());
+    job->setId(_id);
+    job->setParent(this);
+    job->setDoneCallback(_threadDoneWrapper);
+
     ClientNode *client = _addClient(connectionStr, clientPort, job);
     client->setSocket(handlerSocket);
+    client->setUsername(username);
+
+
     job->setClient(client);
     job->setSharedData((bool *)&_terminated);
 
@@ -90,7 +156,9 @@ void Server::serveRequest(Message  &request) {
     }
   }
 
+
   delete connectionStr;
+
 
 
 }
@@ -99,11 +167,14 @@ size_t Server::getJobCount() const {
   return _jobCount;
 }
 
-ClientNode *Server::_addClient(char *id, int port, Job *job) {
+ClientNode *Server::_addClient(char *key, int port, Job *job) {
+  char id[128];
+  Crypto::md5Hash(key, id);
   if(_clients.find(id) != _clients.end())
     return _clients[id];
 
   ClientNode *client = new ClientNode(id);
+
   client->setPort(port);
   client->setJob(job);
 
@@ -131,6 +202,30 @@ int Server::_removeClient(char *id) {
   _clients.erase(id);
 
   return 0;
+}
+
+void Server::run() {
+  listen();
+}
+
+bool Server::reset() {
+  stop();
+  return true;
+}
+
+void Server::stop() {
+  Thread::stop();
+}
+
+void *Server::_threadDoneWrapper(Thread *thread, void* parent) {
+  Job * job = static_cast<Job *>(thread);
+  Server *server = static_cast<Server *>(parent);
+  server->_threadDoneCallback(job);
+  return (void *)thread;
+}
+void Server::_threadDoneCallback(Job *job) {
+  _removeClient((char *)job->getClient()->getClientId());
+  _jobsPool.release(job);
 }
 
 Message Server::_getMessageTimeout(time_t seconds, suseconds_t mseconds) {

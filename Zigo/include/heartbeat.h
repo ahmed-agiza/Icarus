@@ -27,6 +27,7 @@ class HeartBeat : public Thread {
   UDPSocket * _clientSocket;
   uint16_t _port;
   char _hostname[128];
+  char _username[128];
   Message _getReply();
   Message _getReplyTimeout(time_t seconds = 0, suseconds_t mseconds = 0);
   void _establishConnection(); //connect to server
@@ -42,7 +43,7 @@ class HeartBeat : public Thread {
   pthread_mutex_t _fetchingCvLock;
   pthread_cond_t _fetchingCv;
 public:
-  HeartBeat(const char *hostname, uint16_t port);
+  HeartBeat(const char *username, const char *hostname, uint16_t port);
   void run();
   bool reset();
   void stop();

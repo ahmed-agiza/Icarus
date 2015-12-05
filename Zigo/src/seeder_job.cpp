@@ -1,15 +1,19 @@
 #include "seeder_job.h"
 
 SeederJob::SeederJob():Thread(), _client(0){
+  memset(_id, 0, 128);
+}
 
+SeederJob::SeederJob(const char *id):Thread(), _client(0){
+  strcpy(_id, id);
 }
 
 SeederJob::SeederJob(SeederNode *client):Thread(), _client(client){
-
+  memset(_id, 0, 128);
 }
 
 SeederJob::SeederJob(const SeederJob &other):Thread(other), _client(new SeederNode(*other._client)){
-  printf("SeederJob(const SeederJob &other)\n");
+  strcpy(_id, other._id);
 }
 
 SeederNode *SeederJob::getClient() const {
@@ -47,7 +51,7 @@ void SeederJob::run() {
         if(_terminationRequest()) {
           break;
         }
-        request = handlerSocket->recvMessageTimeout(20, 0);
+        request = handlerSocket->recvMessageTimeout(10, 0);
       } catch (ReceiveTimeoutException &timeout) {
         clientTerminated = true;
       }
@@ -74,7 +78,7 @@ void SeederJob::run() {
         strcat(result, ";");
       }
       unlock();
-      Message resultMessage(Reply, result);
+      Message resultMessage(Reply, result, _id, DEFAULT_MESSAGE_ID);
       ssize_t sentResult = handlerSocket->sendMessage(resultMessage);
       (void) sentResult;
       continue;
@@ -87,9 +91,8 @@ void SeederJob::run() {
 
     //int ping = sprintf(ack, "%zd", request.getMessagSize());
     //(void)ping;
-
-    Message pingReply(Pong, "1");
-    ssize_t sentPong = handlerSocket->sendMessage(pingReply);
+    Message pongReply(Pong, "1", _id, DEFAULT_MESSAGE_ID);
+    ssize_t sentPong = handlerSocket->sendMessage(pongReply);
     (void)sentPong;
   }
   printf("Client disconneced!\n");
@@ -120,6 +123,10 @@ void SeederJob::setSharedData(void *ptr) {
 
 void *SeederJob::getSharedData() const {
   return _shared;
+}
+
+void SeederJob::setId(char *id) {
+  strcpy(_id, id);
 }
 
 SeederJob::~SeederJob(){

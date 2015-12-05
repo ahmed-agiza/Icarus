@@ -10,6 +10,8 @@ using std::map;
 #include "job.h"
 #include "thread_pool.h"
 #include "file.h"
+#include "crypto.h"
+#include "thread.h"
 
 struct StringCompare {
    bool operator()(char const *a, char const *b) {
@@ -18,7 +20,7 @@ struct StringCompare {
 };
 
 
-class Server {
+class Server : public Thread {
 private:
   UDPSocket * _serverSocket;
   uint16_t _listenPort;
@@ -26,6 +28,9 @@ private:
   pthread_mutex_t _terminationLock;
   bool _terminated; //used to terminate the server when a client wishes to close connection
 
+  char _publicRSA[2048];
+  char _privateRSA[2048];
+  char _id[128];
 
   map<char *, ClientNode *, StringCompare> _clients;
 
@@ -43,11 +48,15 @@ private:
   int _getClientPort(char *id);
   ClientNode *_getClient(char *id);
   int _removeClient(char *id);
-
-
+  static void *_threadDoneWrapper(Thread *, void *);
+  void _threadDoneCallback(Job *);
 public:
   Server(uint16_t listenPort);
   void listen();
+
+  void run();
+  bool reset();
+  void stop();
 
   size_t getJobCount() const;
 

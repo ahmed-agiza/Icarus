@@ -59,8 +59,8 @@ BINARIES = $(BUILD_DIR)/server $(BUILD_DIR)/client $(BUILD_DIR)/seeder
 CC = g++
 DEBUG = -g
 LIBS = -pthread -lssl -lcrypto -ldl
-CFLAGS = -Wall $(INCLUDE) $(EX_LIB) $(LIBS) -c $(DEBUG)
-LFLAGS = -Wall $(INCLUDE) $(EX_LIB) $(LIBS) $(DEBUG)
+CFLAGS = -Wall -Wno-write-strings -Wno-reorder $(INCLUDE) $(EX_LIB) $(LIBS) -c $(DEBUG)
+LFLAGS = -Wall -Wno-write-strings -Wno-reorder $(INCLUDE) $(EX_LIB) $(LIBS) $(DEBUG)
 
 pre :
 ifeq ($(STEGHIDE_EXISTS),)

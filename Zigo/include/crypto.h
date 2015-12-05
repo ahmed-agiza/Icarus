@@ -34,6 +34,7 @@ public:
   static int decrypt(char* rsaPrivateKey, const char* msg, char* decrypt);
   static int base64Encode(const void* msg, size_t msgLength, char* encoded, size_t encodedLength);
   static int base64Decode(char *msg, size_t messageLength, unsigned char *decoded, size_t *decodedLength = 0);
+  static void generateRandomString(char *buf, int length);
   static size_t base64Len(const char* b64input);
   static int md5Hash(char *msg, char *hash);
   static RSA* getPublicKey(const char* pubKeyFile);

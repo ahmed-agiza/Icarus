@@ -12,6 +12,7 @@ class Job;
 //A client tree structure.
 class ClientNode {
   char _clientId[128];
+  char _username[128];
   UDPSocket *_socket;
   uint16_t _port;
   Job *_reponderJob;
@@ -38,6 +39,8 @@ public:
 
 
   void setJob(Job *job);
+
+  void setUsername(const char *username);
 
   Job *getJob();
 

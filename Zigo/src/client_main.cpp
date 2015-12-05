@@ -3,7 +3,13 @@
 #include <stdint.h>
 #include <string.h>
 
+//#define TEST_ENCDEC
+#define TEST_SEEDER
+//#define TEST_CLIENT
+
 int main(int argc, char const *argv[]) {
+
+#if defined(TEST_ENCDEC)
   char message[1024];
   char encoded[2048];
   char decoded[2048];
@@ -19,6 +25,7 @@ int main(int argc, char const *argv[]) {
     printf("Decoded(%d): %s\n", (int)decodedSize, decoded);
   }
   return 0;
+#elif defined(TEST_SEEDER)
   if ( argc != 2) {
 		printf ("Usage: ./client <server-address>\n");
 		exit(1);
@@ -26,7 +33,8 @@ int main(int argc, char const *argv[]) {
   char tempBuff[64];
   char results[MAX_READ_SIZE];
   try {
-    HeartBeat *heartBeat = new HeartBeat(argv[1], 9999);
+
+    HeartBeat *heartBeat = new HeartBeat("ahmed", argv[1], 9999);
     printf("%d\n", heartBeat->start());
     while(1) {
       printf("Input: ");
@@ -54,9 +62,12 @@ int main(int argc, char const *argv[]) {
 
   return 0;
 
+#elif defined(TEST_CLIENT)
+  printf("Client!\n");
   try {
-    Client client(argv[1], 9999);
-    int clientRC = client.start();
+    Client *client = new Client("ahmed", argv[1], 9999);
+    int clientRC = client->start();
+    client->wait();
     char terminationMessage[LOG_MESSAGE_LENGTH];
     sprintf(terminationMessage, "Client terminated with code %d.", clientRC);
     Logger::info(terminationMessage);
@@ -67,4 +78,5 @@ int main(int argc, char const *argv[]) {
   }
 
   return 0;
+#endif
 }

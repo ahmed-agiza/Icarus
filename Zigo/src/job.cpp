@@ -1,15 +1,19 @@
 #include "job.h"
 
 Job::Job():Thread(), _client(0){
-
+  memset(_id, 0, 128);
 }
 
 Job::Job(ClientNode *client):Thread(), _client(client){
+  memset(_id, 0, 128);
+}
 
+Job::Job(const char *id):Thread(), _client(0) {
+  strcpy(_id, id);
 }
 
 Job::Job(const Job &other):Thread(other), _client(new ClientNode(*other._client)){
-  printf("Job(const Job &other)\n");
+  strcpy(_id, other._id);
 }
 
 
@@ -72,7 +76,7 @@ void Job::run() {
         _client->addFile(fd, file);
         char replyMessage[32];
         sprintf(replyMessage, "%d", fd);
-        Message fdReply(Reply, replyMessage);
+        Message fdReply(Reply, replyMessage, _id, DEFAULT_MESSAGE_ID);
         handlerSocket->sendMessage(fdReply);
 
         Message ackBack = handlerSocket->recvMessage();
@@ -106,11 +110,11 @@ void Job::run() {
         file->read(fileReadBuffer, readSize);
         if (file->isEOF()) {
           printf("EOF!\n");
-          Message eofMessage(Eof, "0");
+          Message eofMessage(Eof, "0", _id, DEFAULT_MESSAGE_ID);
           handlerSocket->sendMessage(eofMessage);
         } else {
           printf("Read: %s\n", fileReadBuffer);
-          Message readMessage(Reply, fileReadBuffer);
+          Message readMessage(Reply, fileReadBuffer, _id, DEFAULT_MESSAGE_ID);
           handlerSocket->sendMessage(readMessage);
         }
 
@@ -134,7 +138,7 @@ void Job::run() {
         size_t writtenBytes = file->write(fileWriteBuffer, writeSize);
         char writtenStr[32];
         sprintf(writtenStr, "%zd", writtenBytes);
-        Message writtenByes(Reply, writtenStr);
+        Message writtenByes(Reply, writtenStr, _id, DEFAULT_MESSAGE_ID);
         handlerSocket->sendMessage(writtenByes);
         printf("Written!\n");
       } else if (request.getType() == Lseek) {
@@ -152,7 +156,7 @@ void Job::run() {
         file->setOffset(offset);
         char offsetStr[32];
         sprintf(offsetStr, "%zd", offset);
-        Message ackMessage(Reply, offsetStr);
+        Message ackMessage(Reply, offsetStr, _id, DEFAULT_MESSAGE_ID);
         handlerSocket->sendMessage(ackMessage);
       } else if (request.getType() == Close) {
         int fd;
@@ -168,7 +172,7 @@ void Job::run() {
         int closeRc = file->close();
         char closeRcStr[8];
         sprintf(closeRcStr, "%d", closeRc);
-        Message closeRcMessage(Reply, closeRcStr);
+        Message closeRcMessage(Reply, closeRcStr, _id, DEFAULT_MESSAGE_ID);
         handlerSocket->sendMessage(closeRcMessage);
         printf("Close(%s)\n", closeRcStr);
       }
@@ -193,7 +197,7 @@ void Job::run() {
     int ackLen = sprintf(ack, "%zd", request.getMessagSize());
     (void)ackLen;
 
-    Message ackReply(Acknowledge, ack);
+    Message ackReply(Acknowledge, ack, _id, DEFAULT_MESSAGE_ID);
     ssize_t sentAck = handlerSocket->sendMessage(ackReply);
     (void)sentAck;
 
@@ -215,7 +219,7 @@ void Job::run() {
     int replySize = sprintf(reply, "You sent: %s", request.getBody());
     (void)replySize;
 
-    Message replyMessage(Reply, reply);
+    Message replyMessage(Reply, reply, _id, DEFAULT_MESSAGE_ID);
     handlerSocket->sendMessage(replyMessage);
   }
 
@@ -245,6 +249,10 @@ void Job::setSharedData(void *ptr) {
 
 void *Job::getSharedData() const {
   return _shared;
+}
+
+void Job::setId(char *id) {
+  strcpy(_id, id);
 }
 
 

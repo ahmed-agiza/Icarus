@@ -10,6 +10,7 @@
 class File {
   int _fd;
   char _fileId[1024];
+  char _userId[128];
   bool _isLocal;
   off_t _offset;
   UDPSocket *_socket;
@@ -21,7 +22,7 @@ public:
   File(const File &other);
   static File *open(const char *pathname, int flags);
   static File *open(const char *pathname, int flags, mode_t mode);
-  static File *ropen(UDPSocket *socket, char *fileId);
+  static File *ropen(UDPSocket *socket, char *fileId, const char *userId);
 
   static bool exists(const char *filename);
   static int remove(const char *filePath);
@@ -39,6 +40,7 @@ public:
   ssize_t read(void *buf, size_t count);
   ssize_t write(const void *buf, size_t count);
   void setOffset(off_t offset);
+  void setUserId(const char *userId);
   off_t getOffset() const;
   int close();
   int getFd();

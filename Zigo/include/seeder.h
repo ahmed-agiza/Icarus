@@ -25,6 +25,8 @@ private:
   size_t _jobCount;
   ThreadPool<SeederJob> _jobsPool;
 
+  char _id[128];
+
   Message _getMessage();
   Message _getMessageTimeout(time_t seconds = 0, suseconds_t mseconds = 0);
 
@@ -35,6 +37,9 @@ private:
   int _getClientPort(char *id);
   SeederNode *_getClient(char *id);
   int _removeClient(char *id);
+
+  static void *_threadDoneWrapper(Thread *, void *);
+  void _threadDoneCallback(SeederJob *);
 
 public:
   Seeder(uint16_t listenPort);

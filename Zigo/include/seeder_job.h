@@ -20,8 +20,10 @@ typedef map<char *, SeederNode *, StringCompare> SeedersMap;
 class SeederJob : public Thread {
   SeederNode *_client;
   void *_shared;
+  char _id[128];
 public:
   SeederJob();
+  SeederJob(const char *id);
   SeederJob(SeederNode *client);
   SeederJob(const SeederJob &other);
 
@@ -35,6 +37,8 @@ public:
   //TO BE MERGED WITH THE THREAD CLASS!!!!!!!!!!!!
   void setSharedData(void *ptr);
   void *getSharedData() const;
+
+  void setId(char *id);
 
   ~SeederJob();
 };

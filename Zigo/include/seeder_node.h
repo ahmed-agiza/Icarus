@@ -16,7 +16,7 @@ class SeederNode {
   char _publicKey[2048];
   uint16_t _port;
   SeederJob *_reponderJob;
-
+  long _timestamp;
 public:
   SeederNode(const char *publicKey);
 
@@ -45,6 +45,8 @@ public:
 
   const char *getUsername();
   void setUsername(const char *username);
+
+  long getTimestamp() const;
 
   ~SeederNode();
 };

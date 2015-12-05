@@ -27,10 +27,11 @@ File *File::open(const char *pathname, int flags, mode_t mode) {
   file->_isEOF = false;
   return file;
 }
-File *File::ropen(UDPSocket *socket, char *fileId) {
+File *File::ropen(UDPSocket *socket, char *fileId, const char *userId) {
   File *file = new File;
   file->_socket = socket;
-  Message openMessage(Open, fileId);
+  strcpy(file->_userId, userId);
+  Message openMessage(Open, fileId, file->_userId, DEFAULT_MESSAGE_ID);
   ssize_t sentBytes = file->_socket->sendMessage(openMessage);
   (void) sentBytes;
 
@@ -49,6 +50,10 @@ File *File::ropen(UDPSocket *socket, char *fileId) {
   file->_isLocal = false;
   file->_isEOF = false;
   return file;
+}
+
+void File::setUserId(const char *userId) {
+  strcpy(_userId, userId);
 }
 
 bool File::exists(const char *filename){
@@ -166,7 +171,6 @@ ssize_t File::read(void *buf, size_t count) {
     if (!isEOF()){
       lseek(_fd, SEEK_SET, _offset);
       ssize_t readBytes = ::read(_fd, buf, count);
-      printf("Read bytes: %d\n", (int)readBytes);
       _offset += readBytes;
       if (readBytes == 0)
         _isEOF = true;
@@ -176,7 +180,7 @@ ssize_t File::read(void *buf, size_t count) {
   } else {
     char params[32];
     sprintf(params, "%d\n%zd", _fd, count);
-    Message readMessage(Read, params);
+    Message readMessage(Read, params, _userId, DEFAULT_MESSAGE_ID);
     printf("Params: %s\n", params);
     ssize_t sentBytes = _socket->sendMessage(readMessage);
     (void) sentBytes;
@@ -201,7 +205,7 @@ ssize_t File::read(void *buf, size_t count) {
 
     char seekOff[32];
     sprintf(seekOff, "%d", (int)_offset);
-    Message seekMessage(Lseek, seekOff);
+    Message seekMessage(Lseek, seekOff, _userId, DEFAULT_MESSAGE_ID);
     ssize_t sentOffset = _socket->sendMessage(seekMessage);
     return sentOffset;
   }
@@ -218,7 +222,7 @@ ssize_t File::write(const void *buf, size_t count) {
   } else {
     char params[5860];
     sprintf(params, "%d\n%zd\n%s", _fd, count, (char *)buf);
-    Message writeMessage(Write, params);
+    Message writeMessage(Write, params, _userId, DEFAULT_MESSAGE_ID);
     ssize_t sentBytes = _socket->sendMessage(writeMessage);
     (void) sentBytes;
     uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
@@ -249,7 +253,7 @@ void File::setOffset(off_t offset) {
     char seekOff[32];
     memset(seekOff, 0, 32);
     sprintf(seekOff, "%d\n%ld", _fd, (long)offset);
-    Message seekMessage(Lseek, seekOff);
+    Message seekMessage(Lseek, seekOff, _userId, DEFAULT_MESSAGE_ID);
     ssize_t sentBytes = _socket->sendMessage(seekMessage);
     (void) sentBytes;
     printf("Offset: %ld\nSent: %s\n", (long) offset, seekOff);
@@ -282,9 +286,9 @@ int File::close() {
     char fd[32];
     memset(fd, 0, 32);
     sprintf(fd, "%d", _fd);
-    printf("Closing remote file %s\n", fd);
+    printf("Closing remote file %s\nuMessage closeMessage(Close, fd)", fd);
     fflush(stdout);
-    Message closeMessage(Close, fd);
+    Message closeMessage(Close, fd, _userId, DEFAULT_MESSAGE_ID);
     uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
     ssize_t sentBytes = _socket->sendMessage(closeMessage);
     (void) sentBytes;

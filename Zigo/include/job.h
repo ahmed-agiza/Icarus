@@ -8,8 +8,10 @@
 class Job : public Thread {
   ClientNode *_client;
   void *_shared;
+  char _id[128];
 public:
   Job();
+  Job(const char *id);
   Job(ClientNode *client);
   Job(const Job &other);
 
@@ -23,6 +25,8 @@ public:
   //TO BE MERGED WITH THE THREAD CLASS!!!!!!!!!!!!
   void setSharedData(void *ptr);
   void *getSharedData() const;
+
+  void setId(char *id);
 
 
   ~Job();

@@ -1,7 +1,7 @@
 #include "message.h"
 
 
-Message::Message():_type(Unknown), _length(0), _valid(false){
+Message::Message(Encoding encoding):_type(Unknown), _encoding(encoding), _length(0), _valid(false), _timestamp(0){
 
 }
 
@@ -9,21 +9,25 @@ Message::Message (const char *content) {
   char typeLetter;
 
   memset(_body, 0, MAX_READ_SIZE);
-  int readValues = sscanf(content, "L %zu T %c B %64999c", &_length, &typeLetter, _body);
-  if (readValues < 3) {
+  memset(_ownerId, 0, 128);
+  memset(_messageId, 0, 128);
+  memset(_fullId, 0, 128);
+  int readValues = sscanf(content, "L %zu \nT %c \nE %d \nI %s \nM %ld \nB %64999c", &_length, &typeLetter, (int *)&_encoding, _fullId, &_timestamp, _body);
+  if (readValues < 5) {
     char invalidFormatMessage[LOG_MESSAGE_LENGTH];
-    sprintf(invalidFormatMessage, "Invalid message format(%d).", readValues);
+    sprintf(invalidFormatMessage, "Invalid message format(%d): %s", readValues, content);
     Logger::error(invalidFormatMessage);
     _valid = false;
     setType(Unknown);
   } else{
     _valid = true;
+    sscanf(_fullId, "%[^-]%*c%s", _ownerId, _messageId);
     setType(_letterToType(typeLetter));
   }
 
 }
 
-Message::Message(MessageType type, const char *body):_type(type), _length(strlen(body)), _valid(true) {
+Message::Message(MessageType type, const char *body, char *ownerId, char *messageId, Encoding encoding, size_t encodeLength):_type(type), _encoding(encoding), _length(0), _valid(true) {
   if (_type == Packet) {
     int fd = open(body, O_RDONLY);
     if(fd < 0){
@@ -33,14 +37,32 @@ Message::Message(MessageType type, const char *body):_type(type), _length(strlen
     }
     read(fd, _body, MAX_READ_SIZE);
     _length = strlen(_body);
-    printf("Buffer: %s", _body);
     close(fd);
   } else {
-    setBody(body);
+    memset(_body, 0, MAX_READ_SIZE);
+    memset(_ownerId, 0, 128);
+    memset(_messageId, 0, 128);
+    memset(_fullId, 0, 128);
+    strcpy(_ownerId, ownerId);
+    strcpy(_messageId, messageId);
+    sprintf(_fullId, "%s-%s", _ownerId, _messageId);
+    _timestamp = (long) time(NULL);
+    if (encoding == NoEncoding)
+      setBody(body);
+    else if (encoding == Base64)
+      Crypto::base64Encode(body, encodeLength, _body, MAX_READ_SIZE);
+    _length = strlen(body);
   }
 }
 
-Message::Message(const Message &other): _type(other._type), _length(other._length), _valid(other._valid) {
+Message::Message(const Message &other): _type(other._type), _encoding(other._encoding), _length(other._length), _valid(other._valid), _timestamp(other._timestamp){
+  memset(_body, 0, MAX_READ_SIZE);
+  memset(_ownerId, 0, 128);
+  memset(_messageId, 0, 128);
+  memset(_fullId, 0, 128);
+  strcpy(_ownerId, other._ownerId);
+  strcpy(_messageId, other._messageId);
+  strcpy(_fullId, other._fullId);
   setBody(other._body);
 }
 
@@ -63,9 +85,12 @@ bool Message::isFileOperation() {
 
 const char *Message::getBytes() const {
   size_t bodyLen = strlen(_body);
-  size_t bufferSize = bodyLen + sizeof(_length) + sizeof(_type);
-  char *buffer = new char[bufferSize];
-  sprintf(buffer, "L %zu\nT %c\nB %s", _length, _typeToLetter(_type), _body);
+  size_t bufferSize = bodyLen + _numberOfDigits(_length) + sizeof(_type) + strlen(_fullId) + _numberOfDigits(_timestamp) + sizeof(_encoding);
+
+  char *buffer = new char[bufferSize + 25];
+
+  sprintf(buffer, "L %zu \nT %c \nE %d\nI %s \nM %ld \nB %s", _length, _typeToLetter(_type), _encoding, _fullId, _timestamp, _body);
+
   return buffer;
 }
 
@@ -120,6 +145,10 @@ MessageType Message:: _letterToType(char typeLetter) const {
     return Acknowledge;
   else if (typeLetter == 'Y')
     return Accept;
+  else if (typeLetter == 'D')
+    return Decline;
+  else if (typeLetter == 'V')
+    return Verify;
   else if (typeLetter == 'P')
     return Ping;
   else if (typeLetter == 'G')
@@ -134,7 +163,7 @@ MessageType Message:: _letterToType(char typeLetter) const {
     return Open;
   else if (typeLetter == 'X')
     return Close;
-  else if (typeLetter == 'D')
+  else if (typeLetter == 'B')
     return Read;
   else if (typeLetter == 'W')
     return Write;
@@ -155,6 +184,10 @@ char Message::_typeToLetter(MessageType type) const {
     return 'C';
   else if (type == Accept)
     return 'Y';
+  else if (type == Decline)
+    return 'D';
+  else if (type == Verify)
+    return 'V';
   else if (type == Acknowledge)
     return 'A';
   else if (type == Ping)
@@ -172,7 +205,7 @@ char Message::_typeToLetter(MessageType type) const {
   else if (type == Close)
     return 'X';
   else if (type == Read)
-    return 'D';
+    return 'B';
   else if (type == Write)
     return 'W';
   else if (type == Lseek)
@@ -181,6 +214,16 @@ char Message::_typeToLetter(MessageType type) const {
     return 'E';
   else
     return 'N';
+}
+unsigned int Message::_numberOfDigits (unsigned num) const {
+  return num > 0 ? (int) log10((double) num) + 1 : 1;
+}
+
+void Message::setEncoding(Encoding encoding) {
+    _encoding = encoding;
+}
+Encoding Message::getEncoding() const {
+  return _encoding;
 }
 
 Message::~Message() {

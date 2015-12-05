@@ -12,7 +12,7 @@
 #define LOG_ERROR_PATH "../log/error.log"
 #define LOG_INFO_PATH "../log/info.log"
 
-#define LOG_MESSAGE_LENGTH 100
+#define LOG_MESSAGE_LENGTH 2176
 
 #define WRITE_FAILED -1
 #define WRITE_SUCCESS 0
@@ -24,10 +24,11 @@
 enum LogLevel {
   Verbose = 0,
   Warning = 1,
-  Error = 2
+  Error = 2,
+  None = 3
 };
 
-#define LOG_LVL Verbose
+#define LOG_LVL None
 
 class Logger {
   static tm _getCurrentTime();

@@ -1,7 +1,9 @@
 #include "thread.h"
 
 
-Thread::Thread():_running(0), _thread(new pthread_t), _lock(0), _terminationFlag(0) {
+Thread::Thread():_running(0), _constructed(false), _joinRequested(false), _done(false), _thread(new pthread_t), _lock(0), _terminationFlag(0) {
+  _doneCallback = NULL;
+  _parent = NULL;
   if (pthread_mutex_init(&_internalLock, NULL))
     throw MutexInitializationException();
 
@@ -13,8 +15,9 @@ Thread::Thread():_running(0), _thread(new pthread_t), _lock(0), _terminationFlag
   if(rc)
     throw ThreadCreationException();
 }
-Thread::Thread(const Thread &other):_running(other._running), _thread(new pthread_t), _lock(other._lock), _terminationFlag(other._terminationFlag){
-  printf("Thread(const Thread &other)\n");
+Thread::Thread(const Thread &other):_running(other._running), _constructed(other._constructed), _joinRequested(other._joinRequested), _done(other._done), _thread(new pthread_t), _lock(other._lock), _terminationFlag(other._terminationFlag) {
+  _doneCallback = NULL;
+  _parent = other._parent;
   if (pthread_mutex_init(&_internalLock, NULL))
     throw MutexInitializationException();
 
@@ -28,6 +31,8 @@ Thread::Thread(const Thread &other):_running(other._running), _thread(new pthrea
 }
 
 int Thread::start() {
+  _done = false;
+  while(!_constructed);
   if (!_running) {
     pthread_mutex_lock(&_internalLock);
     pthread_cond_signal(&_internalCv);
@@ -59,15 +64,22 @@ bool Thread::_terminationRequest() const {
 
 void *Thread::_run(void *thisThread) {
   Thread *threadObject = (Thread *) thisThread;
-  pthread_mutex_lock(&threadObject->_internalLock);
-  pthread_cond_wait(&threadObject->_internalCv, &threadObject->_internalLock);
-  pthread_mutex_unlock(&threadObject->_internalLock);
+  while(!threadObject->_joinRequested) {
+    pthread_mutex_lock(&threadObject->_internalLock);
+    threadObject->_constructed = true;
+    pthread_cond_wait(&threadObject->_internalCv, &threadObject->_internalLock);
+    pthread_mutex_unlock(&threadObject->_internalLock);
+    if (!threadObject->_terminationRequest()) {
+      threadObject->_running = 1;
+      threadObject->run();
+      threadObject->_running = 0;
+    }
 
-  if (!threadObject->_terminationRequest()) {
-    threadObject->_running = 1;
-    threadObject->run();
-    threadObject->_running = 0;
+    threadObject->_done = true;
+    if (threadObject->_doneCallback)
+      (*(threadObject->_doneCallback))(threadObject, threadObject->_parent);
   }
+
 
   pthread_exit(0);
 }
@@ -89,9 +101,22 @@ pthread_t Thread::getId() const {
   return pthread_self();
 }
 
-void Thread::wait() {
+void Thread::setParent(void *parent) {
+  _parent = parent;
+}
+
+void Thread::join() {
+  while(!_constructed);
+  _joinRequested = true;
   if (_thread)
     pthread_join(*_thread, NULL);
+}
+
+void Thread::wait() {
+  while(!_constructed);
+  if (_thread) {
+    while(!_done);
+  }
 }
 
 pthread_mutex_t *Thread::getMutex() const {
@@ -143,6 +168,10 @@ int Thread::pause(pthread_mutex_t *cvLock) const {
 }
 int Thread::resume() const {
   return pthread_cond_signal(_cv);
+}
+
+void Thread::setDoneCallback(ThreadCallback callback) {
+  _doneCallback = callback;
 }
 
 Thread::~Thread() {
