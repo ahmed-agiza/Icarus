@@ -1,47 +1,25 @@
-#include "server.h"
+#include "seeder.h"
 
-Server::Server(uint16_t listenPort):_listenPort(listenPort), _terminated(false), _jobCount(0) {
+Seeder::Seeder(uint16_t listenPort):_listenPort(listenPort), _jobCount(0) {
   _jobsPool.initialize(Settings::getInstance().getPoolSize(), true);
 
-  if (!File::exists(PUBLIC_KEY_PATH) || !File::exists(PRIVATE_KEY_PATH)) {
-    Crypto::generateKeyPair(PRIVATE_KEY_PATH, PUBLIC_KEY_PATH);
-  }
+  _seederSocket = new UDPSocket;
+  _seederSocket->initialize(listenPort);
 
-  File *publicKeyFile = File::open(PUBLIC_KEY_PATH, O_RDONLY);
-  File *privateKeyFile = File::open(PRIVATE_KEY_PATH, O_RDONLY);
-  memset(_id, 0, 128);
-  memset(_publicRSA, 0, 2048);
-  memset(_privateRSA, 0, 2048);
-  publicKeyFile->read(_publicRSA, 2048);
-  privateKeyFile->read(_privateRSA, 2048);
-  publicKeyFile->close();
-  privateKeyFile->close();
-  delete publicKeyFile;
-  delete privateKeyFile;
-
-  Crypto::md5Hash(_publicRSA, _id);
-
-
-  _serverSocket = new UDPSocket;
-  _serverSocket->initialize(listenPort);
-
-  if (pthread_mutex_init(&_terminationLock, NULL) != 0)
+  if (pthread_mutex_init(&_mapLock, NULL) != 0)
     throw MutexInitializationException();
 
-  _serverSocket->setMutex(&_terminationLock);
 }
 
-void Server::listen() {
+void Seeder::listen() {
   Message request;
-  uint32_t serverReplyTo = Settings::getInstance().getServerReplyTimeout();
-  while(1){
+  uint32_t seederReplyTo = Settings::getInstance().getServerReplyTimeout();
+
+  while(1) {
     printf("Listening..\n");
     while(1) {
       try {
-        if(_terminated) {
-          break;
-        }
-        request = _getMessageTimeout(serverReplyTo, 0);
+        request = _getMessageTimeout(seederReplyTo, 0);
 
         if (request.getType() != Connect) {
           char invalidRequestMessage[LOG_MESSAGE_LENGTH];
@@ -55,25 +33,21 @@ void Server::listen() {
       break;
     }
 
-    if(_terminated) {
-      break;
-    }
-
     char newRequestMessage[LOG_MESSAGE_LENGTH];
-    sprintf(newRequestMessage, "Request from %s(%d): %s", _serverSocket->getPeerName(), _serverSocket->getPortNumber(), request.getBody());
+    sprintf(newRequestMessage, "Request from %s(%d): %s", _seederSocket->getPeerName(), _seederSocket->getPortNumber(), request.getBody());
     Logger::info(newRequestMessage);
     fflush(stdout);
     serveRequest(request);
   }
-  Logger::info("Server terminated!");
+
+  Logger::info("Seeder terminated!");
 }
 
-void Server::serveRequest(Message  &request) {
-
+void Seeder::serveRequest(Message  &request) {
   char portReply[32], username[128], rsa[2048], verificationToken[64], encryptedToken[256];
   uint32_t seederReplyTo = Settings::getInstance().getServerReplyTimeout();
 
-  char *clientAddrName = (char *)inet_ntoa(_serverSocket->getPeerAddress().sin_addr);
+  char *clientAddrName = (char *)inet_ntoa(_seederSocket->getPeerAddress().sin_addr);
   (void)clientAddrName;
 
   char *connectionStr = new char[strlen(request.getBody()) + 1];
@@ -85,6 +59,7 @@ void Server::serveRequest(Message  &request) {
     delete connectionStr;
     return;
   }
+
 
   Crypto::generateRandomString(verificationToken, 64);
 
@@ -112,88 +87,74 @@ void Server::serveRequest(Message  &request) {
   }
 
 
+
   int checkPort = _getClientPort(connectionStr);
+
 
   if (checkPort > -1) {
     char portExistsMessage[LOG_MESSAGE_LENGTH];
     sprintf(portExistsMessage, "Connection %s already exists on port %d", connectionStr, checkPort);
     Logger::warn(portExistsMessage);
     sprintf(portReply, "%u", checkPort);
-    Message portReplyMessage(Accept, portReply, _id, DEFAULT_MESSAGE_ID);
+    Message portReplyMessage(Accept, portReply, SEEDER_ID, DEFAULT_MESSAGE_ID);
     _sendMessage(portReplyMessage);
   } else {
-
     UDPSocket *handlerSocket = new UDPSocket;
-    handlerSocket->setPeerAddress(_serverSocket->getPeerAddress());
-    handlerSocket->setMutex(&_terminationLock);
-
+    handlerSocket->setPeerAddress(_seederSocket->getPeerAddress());
+    handlerSocket->setMutex(&_mapLock);
     uint16_t clientPort = handlerSocket->initialize(0);
-
     sprintf(portReply, "%u", clientPort);
-
-    Message portReplyMessage(Accept, portReply, _id, DEFAULT_MESSAGE_ID);
+    Message portReplyMessage(Accept, portReply, SEEDER_ID, DEFAULT_MESSAGE_ID);
     _sendMessage(portReplyMessage);
 
-
-    Job *job = dynamic_cast<Job *>(_jobsPool.acquire());
-    job->setId(_id);
-    job->setParent(this);
-    job->setDoneCallback(_threadDoneWrapper);
-
-    ClientNode *client = _addClient(connectionStr, clientPort, job);
+    SeederJob *job = dynamic_cast<SeederJob *>(_jobsPool.acquire());
+    job->setId(SEEDER_ID);
+    SeederNode *client = _addClient(rsa, clientPort, job);
     client->setSocket(handlerSocket);
     client->setUsername(username);
-
-
     job->setClient(client);
-    job->setSharedData((bool *)&_terminated);
+    job->setSharedData((SeedersMap *)&_clients);
+    job->setParent(this);
+    job->setDoneCallback(_threadDoneWrapper);
 
     if(job->start()) {
       printf("Serving client..\n");
     } else {
-      Logger::error("Failed to create the server thread.");
+      Logger::error("Failed to create the Seeder thread.");
       _removeClient(connectionStr);
     }
   }
 
-
   delete connectionStr;
-
-
-
 }
 
-size_t Server::getJobCount() const {
+size_t Seeder::getJobCount() const {
   return _jobCount;
 }
 
-ClientNode *Server::_addClient(char *key, int port, Job *job) {
-  char id[128];
-  Crypto::md5Hash(key, id);
-  if(_clients.find(id) != _clients.end())
-    return _clients[id];
+SeederNode *Seeder::_addClient(char *key, int port, SeederJob *job) {
+  if(_clients.find(key) != _clients.end())
+    return _clients[key];
 
-  ClientNode *client = new ClientNode(id);
+  SeederNode *client = new SeederNode(key);
 
   client->setPort(port);
   client->setJob(job);
 
-  _clients[id] = client;
-
   return client;
 }
 
-int Server::_getClientPort(char *id) {
+int Seeder::_getClientPort(char *id) {
   if (_clients.find(id) == _clients.end())
     return -1;
   return _clients[id]->getPort();
 }
 
-ClientNode *Server::_getClient(char *id) {
+SeederNode *Seeder::_getClient(char *id) {
   return _clients[id];
 }
 
-int Server::_removeClient(char *id) {
+int Seeder::_removeClient(char *id) {
   if (_clients.find(id) == _clients.end())
     return -1;
 
@@ -204,55 +165,43 @@ int Server::_removeClient(char *id) {
   return 0;
 }
 
-void Server::run() {
-  listen();
+Message Seeder::_getMessageTimeout(time_t seconds, suseconds_t mseconds) {
+  return _seederSocket->recvMessageTimeout(seconds, mseconds);
 }
 
-bool Server::reset() {
-  stop();
-  return true;
+Message Seeder::_getMessage() {
+  return _seederSocket->getMessage();
 }
 
-void Server::stop() {
-  Thread::stop();
+ssize_t Seeder::_sendMessage(Message message){
+  return _seederSocket->sendMessage(message);
 }
 
-void *Server::_threadDoneWrapper(Thread *thread, void* parent) {
-  Job * job = static_cast<Job *>(thread);
-  Server *server = static_cast<Server *>(parent);
-  server->_threadDoneCallback(job);
+void Seeder::_sendReply() {
+
+}
+
+void *Seeder::_threadDoneWrapper(Thread *thread, void* parent) {
+  SeederJob * job = static_cast<SeederJob *>(thread);
+  Seeder *seeder = static_cast<Seeder *>(parent);
+  seeder->_threadDoneCallback(job);
   return (void *)thread;
 }
-void Server::_threadDoneCallback(Job *job) {
-  _removeClient((char *)job->getClient()->getClientId());
+void Seeder::_threadDoneCallback(SeederJob *job) {
+  printf("Releasing!\n");
   _jobsPool.release(job);
+  printf("Done!\n");
 }
 
-Message Server::_getMessageTimeout(time_t seconds, suseconds_t mseconds) {
-  return _serverSocket->recvMessageTimeout(seconds, mseconds);
-}
-
-Message Server::_getMessage() {
-  return _serverSocket->getMessage();
-}
-
-ssize_t Server::_sendMessage(Message message){
-  return _serverSocket->sendMessage(message);
-}
-
-void Server::_sendReply() {
-
-}
-
-Server::~Server() {
-  for (std::map<char *, ClientNode *, StringCompare>::iterator it = _clients.begin(); it != _clients.end(); ++it) {
-    ClientNode *client = it->second;
-    Job *clientJob = client->getJob();
+Seeder::~Seeder() {
+  for (std::map<char *, SeederNode *, StringCompare>::iterator it = _clients.begin(); it != _clients.end(); ++it) {
+    SeederNode *client = it->second;
+    SeederJob *clientJob = client->getJob();
     if (clientJob) {
       clientJob->wait();
       delete clientJob;
     }
     _removeClient(it->first);
   }
-  pthread_mutex_destroy(&_terminationLock);
+  pthread_mutex_destroy(&_mapLock);
 }

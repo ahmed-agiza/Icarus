@@ -26,7 +26,7 @@ public:
 
   void setClientId(const char *id);
 
-  const char *getClientId() const;
+  const char *getClientId();
 
   UDPSocket *getSocket();
 
@@ -45,6 +45,8 @@ public:
 
   const char *getUsername();
   void setUsername(const char *username);
+
+  void getPeer(char* peer);
 
   long getTimestamp() const;
 

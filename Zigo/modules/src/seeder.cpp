@@ -6,8 +6,6 @@ Seeder::Seeder(uint16_t listenPort):_listenPort(listenPort), _jobCount(0) {
   _seederSocket = new UDPSocket;
   _seederSocket->initialize(listenPort);
 
-
-
   if (pthread_mutex_init(&_mapLock, NULL) != 0)
     throw MutexInitializationException();
 
@@ -62,6 +60,7 @@ void Seeder::serveRequest(Message  &request) {
     return;
   }
 
+
   Crypto::generateRandomString(verificationToken, 64);
 
   int encryptionLength = Crypto::encrypt(rsa, verificationToken, encryptedToken);
@@ -91,7 +90,6 @@ void Seeder::serveRequest(Message  &request) {
 
   int checkPort = _getClientPort(connectionStr);
 
-  //VERIFY RSA KEY!!!!!!!!!!!!!!!!!
 
   if (checkPort > -1) {
     char portExistsMessage[LOG_MESSAGE_LENGTH];

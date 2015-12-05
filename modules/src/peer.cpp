@@ -32,8 +32,7 @@ Peer::Peer(const Peer &other) {
 
 Peer Peer::fromString(char *raw) {
   char id[128], user_name[128], ip[128], port[128];
-  sscanf(raw, "%s:%s:%s:%s", id, user_name, ip, port);
-
+  sscanf(raw, "%[^':']:%[^':']:%[^':']:%s", id, user_name, ip, port);
   Peer peer(id, ip, NULL, user_name);
   return peer;
 }
@@ -42,12 +41,11 @@ PeersMap Peer::fromStringList(char *raw) {
 /*<id>:<username>:<ip>:<port>*/
   PeersMap tempMap;
   char * pch;
-
   pch = strtok (raw,";");
   while (pch != NULL) {
-    pch = strtok (NULL, ";");
     Peer tempPeer = fromString(pch);
     tempMap[(char *)tempPeer.getId()] = tempPeer;
+    pch = strtok (NULL, ";");
   }
   return tempMap;
 }

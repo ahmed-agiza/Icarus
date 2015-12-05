@@ -71,11 +71,37 @@ void SeederJob::run() {
     fflush(stdout);*/
     if (request.getType() == Query) {
       char result[5000];
+      char peer[2048];
+      char body[128], type[128];
+      int qtype;
+      sscanf(request.getBody(), "%[^=]=%s", type, body);
+      if (strcmp(type, "username") == 0)
+        qtype = 1;
+      else if (strcmp(type, "id") == 0)
+        qtype = 2;
+      else  if (strcmp(request.getBody(), "") == 0)
+        qtype = 3;
+      else {
+        char invalidRequestMessage[LOG_MESSAGE_LENGTH];
+        sprintf(invalidRequestMessage, "Invalid request type: %s", request.getBytes());
+        Logger::error(invalidRequestMessage);
+        continue;
+      }
       lock();
       for (std::map<char *, SeederNode *, StringCompare>::iterator it = clients->begin(); it != clients->end(); ++it) {
         SeederNode *client = it->second;
-        strcat(result, client->getClientId());
-        strcat(result, ";");
+        if (qtype == 3 || (qtype == 1 && strcmp(body, client->getUsername()) == 0)) {
+            client->getPeer(peer);
+            strcat(result, peer);
+            strcat(result, ";");
+          }
+        if (qtype == 2 && client->getClientId() == 0) {
+          client->getPeer(peer);
+          strcat(result, peer);
+          strcat(result, ";");
+          break;
+        }
+
       }
       unlock();
       Message resultMessage(Reply, result, _id, DEFAULT_MESSAGE_ID);

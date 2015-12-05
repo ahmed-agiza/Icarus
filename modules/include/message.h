@@ -34,6 +34,7 @@ enum MessageType {
   Write = 15, //W
   Lseek = 16, //L
   Eof = 17, //E
+  Information = 18, //I
   Unknown = -1 // N
 };
 

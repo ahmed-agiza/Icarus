@@ -171,6 +171,8 @@ MessageType Message:: _letterToType(char typeLetter) const {
     return Lseek;
   else if (typeLetter == 'E')
     return Eof;
+  else if (typeLetter == 'I')
+    return Information;
   else
     return Unknown;
 }
@@ -212,6 +214,8 @@ char Message::_typeToLetter(MessageType type) const {
     return 'L';
   else if (type == Eof)
     return 'E';
+  else if (type == Information)
+    return 'I';
   else
     return 'N';
 }

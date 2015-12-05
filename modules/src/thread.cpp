@@ -79,8 +79,7 @@ void *Thread::_run(void *thisThread) {
     if (threadObject->_doneCallback)
       (*(threadObject->_doneCallback))(threadObject, threadObject->_parent);
   }
-
-
+  
   pthread_exit(0);
 }
 

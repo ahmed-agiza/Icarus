@@ -28,7 +28,7 @@ void SeederNode::setClientId(const char *id) {
   strcpy(_clientId, id);
 }
 
-const char *SeederNode::getClientId() const {
+const char *SeederNode::getClientId() {
   return _clientId;
 }
 
@@ -69,6 +69,19 @@ const char *SeederNode::getUsername() {
 
 void SeederNode::setUsername(const char *username) {
   strcpy(_username, username);
+}
+
+void SeederNode::getPeer(char* peer) {
+  memset(peer, 0, 2048);
+  char port[128];
+  strcat(peer, getClientId());
+  strcat(peer, ":");
+  strcat(peer, getUsername());
+  strcat(peer, ":");
+  strcat(peer, _socket->getPeerName());
+  strcat(peer, ":");
+  sprintf(port, "%d", (int)getPort());
+  strcat(peer, port);
 }
 
 long SeederNode::getTimestamp() const {
