@@ -12,7 +12,7 @@ Client* ClientManager::get(const char *id, const char *username, const char *ip,
       return _clientQueue[i];
   }
 
-  Client *client = new Client(username, ip, port);
+  Client *client = new Client(username, ip, port, 0);
 
   put(client);
 

@@ -1,8 +1,16 @@
 #include "heartbeat.h"
 
-HeartBeat::HeartBeat(const char *username, const char * hostname, uint16_t port):Client(username, hostname, port) {
+HeartBeat::HeartBeat(const char *username, const char * hostname, uint16_t port, uint16_t serverPort):Client(username, hostname, port, serverPort) {
   _currentOperation = Pinging;
   _resultState = Steady;
+
+  pthread_condattr_init(&_timerAttr);
+  pthread_condattr_setclock(&_timerAttr, CLOCK_MONOTONIC);
+
+  if (pthread_mutex_init(&_timerMutex, NULL) != 0)
+    throw MutexInitializationException();
+  if (pthread_cond_init(&_timerCv, &_timerAttr))
+    throw CVInitializationException();
 
   memset(_results, 0, MAX_READ_SIZE);
 
@@ -20,6 +28,7 @@ void HeartBeat::run() {
   uint32_t maxRetry = Settings::getInstance().getRetryTimes();
   uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
 
+  _state = Connecting;
   if (_establishConnection() < 0) {
     printf("Connection failed!\n");
     return;
@@ -51,6 +60,7 @@ void HeartBeat::run() {
           pongReply = _getReplyTimeout(clientReplyTo, 0);
         } catch (ReceiveTimeoutException &e) {
           retry++;
+          _state = Disconnected;
           if(retry < (int)maxRetry){
             char retryMessage[LOG_MESSAGE_LENGTH];
             sprintf(retryMessage, "Retrying to ping(%d)..", retry);
@@ -58,7 +68,6 @@ void HeartBeat::run() {
             continue;
           } else {
             success = false;
-            _state = Disconnected;
             break;
           }
         }
@@ -79,7 +88,8 @@ void HeartBeat::run() {
         _state = Disconnected;
         break;
       }
-      sleep(5);
+
+      _waitTimer(PINGING_TIME);
 
     } else if (currentOperation == Querying) {
       _resultState = Fetching;
@@ -108,12 +118,16 @@ void HeartBeat::run() {
       _state = Connected;
     }
   }
+  _resultState = Failed;
+  resume();
 }
 
 void HeartBeat::queryOnline() {
   lock();
   _currentOperation = Querying;
+  sprintf(_queryParam, "1");
   unlock();
+  _wakeTimer();
 }
 
 void HeartBeat::queryUsername(char *username) {
@@ -121,6 +135,7 @@ void HeartBeat::queryUsername(char *username) {
   _currentOperation = Querying;
   sprintf(_queryParam, "username=%s", username);
   unlock();
+  _wakeTimer();
 }
 
 void HeartBeat::queryId(char *id) {
@@ -128,6 +143,15 @@ void HeartBeat::queryId(char *id) {
   _currentOperation = Querying;
   sprintf(_queryParam, "id=%s", id);
   unlock();
+  _wakeTimer();
+}
+
+bool HeartBeat::isConnected() const{
+  return (_state == Connected);
+}
+
+bool HeartBeat::isConnecting() const {
+  return (_state == Connecting);
 }
 
 bool HeartBeat::reset() {
@@ -139,8 +163,17 @@ void HeartBeat::stop() {
   Thread::stop();
 }
 
+void HeartBeat::_waitTimer(long waitVal) {
+  clock_gettime(CLOCK_MONOTONIC, &_pingTime);
+  _pingTime.tv_sec += waitVal;
+  pthread_cond_timedwait(&_timerCv, &_timerMutex, &_pingTime);
+}
+void HeartBeat::_wakeTimer() {
+  pthread_cond_signal(&_timerCv);
+}
+
 
 HeartBeat::~HeartBeat() {
-  pthread_mutex_destroy(&_operationLock);
-  pthread_mutex_destroy(&_fetchingCvLock);
+  pthread_mutex_destroy(&_timerMutex);
+  pthread_cond_destroy(&_timerCv);
 }

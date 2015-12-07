@@ -1,6 +1,7 @@
 #include "seeder_node.h"
 
 SeederNode::SeederNode(const char *publicKey): _socket(0), _timestamp((long)time(NULL)){
+  _serverPort = 0;
   memset(_clientId, 0, 128);
   memset(_username, 0, 128);
   memset(_publicKey, 0, 128);
@@ -10,6 +11,7 @@ SeederNode::SeederNode(const char *publicKey): _socket(0), _timestamp((long)time
 }
 
 SeederNode::SeederNode(const char *publicKey, UDPSocket *socket): _socket(socket), _timestamp((long)time(NULL)) {
+  printf("SeederNode::SeederNode(const char *publicKey, UDPSocket *socket)\n");
   memset(_clientId, 0, 128);
   memset(_username, 0, 128);
   memset(_publicKey, 0, 128);
@@ -18,7 +20,8 @@ SeederNode::SeederNode(const char *publicKey, UDPSocket *socket): _socket(socket
   Crypto::md5Hash(_publicKey, _clientId);
 }
 
-SeederNode::SeederNode(const SeederNode &other): _socket(other._socket), _timestamp(other._timestamp){
+SeederNode::SeederNode(const SeederNode &other): _socket(other._socket), _timestamp(other._timestamp), _serverPort(other._serverPort){
+  printf("WTH: SeederNode::SeederNode(const SeederNode &other): %s\n", other._username);
   strcpy(_publicKey, other._publicKey);
   strcpy(_clientId, other._clientId);
   strcpy(_username, other._username);
@@ -36,6 +39,7 @@ UDPSocket *SeederNode::getSocket() {
   return _socket;
 }
 void SeederNode::setSocket(UDPSocket *socket) {
+  printf("setSokcet(%d)\n", (int)(socket != 0));
   _socket = socket;
 }
 
@@ -79,9 +83,14 @@ void SeederNode::getPeer(char* peer) {
   printf("Username(getPeer()): %s\n", getUsername());
   strcat(peer, getUsername());
   strcat(peer, ":");
-  strcat(peer, _socket->getPeerName());
+  if (_socket)
+    strcat(peer, _socket->getPeerName());
+  else {
+    Logger::warn("Socket is not constructed!");
+    strcat(peer, "-");
+  }
   strcat(peer, ":");
-  sprintf(port, "%d", (int)getPort());
+  sprintf(port, "%d", (int)getServerPort());
   strcat(peer, port);
 }
 
@@ -91,6 +100,14 @@ bool SeederNode::isActive() const {
 
 long SeederNode::getTimestamp() const {
   return _timestamp;
+}
+
+void SeederNode::setServerPort(uint16_t port) {
+  _serverPort = port;
+}
+
+uint16_t SeederNode::getServerPort() const {
+  return _serverPort;
 }
 
 SeederNode::~SeederNode() {

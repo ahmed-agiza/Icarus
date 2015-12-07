@@ -1,12 +1,13 @@
 #include "client.h"
 
 
-Client::Client(const char *username, const char * hostname, uint16_t port): Thread(), _clientSocket(0), _connectionPort(port), _executed(false), _busy(false), _currentOperation(Idle) {
+Client::Client(const char *username, const char * hostname, uint16_t port, uint16_t serverPort): Thread(), _clientSocket(0), _connectionPort(port), _executed(false), _busy(false), _currentOperation(Idle), _serverPort(serverPort) {
   strcpy(_hostname, hostname);
   strcpy(_username, username);
   memset(_id, 0, 128);
 
   if (!File::exists(PUBLIC_KEY_PATH) || !File::exists(PRIVATE_KEY_PATH)) {
+    printf("Generating RSA key pair!\n");
     Crypto::generateKeyPair(PRIVATE_KEY_PATH, PUBLIC_KEY_PATH);
   }
 
@@ -23,7 +24,7 @@ Client::Client(const char *username, const char * hostname, uint16_t port): Thre
   delete privateKeyFile;
 
   Crypto::md5Hash(_publicRSA, _id);
-  printf("ID: %s\n", _id);
+  printf("Client ID: %s\n", _id);
 
   if (pthread_mutex_init(&_operationLock, NULL) != 0)
     throw MutexInitializationException();
@@ -41,13 +42,14 @@ Client::Client(const char *username, const char * hostname, uint16_t port): Thre
 int Client::_establishConnection() {
   if (_clientSocket)
     delete _clientSocket;
+
   _clientSocket = new UDPSocket;
   _clientSocket->initialize(_hostname, _connectionPort);
 
   char connectionString[2176], verificationStr[2048];
   unsigned char decoded[2048];
   size_t decodedLength = 2048;
-  sprintf(connectionString, "%s;%s", _username, _publicRSA);
+  sprintf(connectionString, "%s;%d;%s", _username, (int) _serverPort, _publicRSA);
 
   try {
     Message connectionMessage = Message(Connect, connectionString, _id, DEFAULT_MESSAGE_ID);
@@ -102,12 +104,19 @@ void Client::run() {
     printf("Connection failed!\n");
     return;
   }
-  execute();
+  try {
+    execute();
+  } catch(NetworkException &e) {
+    _resultState = Failed;
+    Logger::error(e.what());
+    resume();
+  }
   _busy = false;
 }
 
 //start sending messages from client.
 int Client::execute() {
+  printf("execute()\n");
   _resultState = Fetching;
   ssize_t sentAckBytes;
   int success = 0;
@@ -174,8 +183,6 @@ int Client::execute() {
 
 
 
-  printf("Receiving reply..\n");
-
 
   Message replyMessage = _getReplyTimeout(clientReplyTo, 0);
   if (replyMessage.getType() != Reply) {
@@ -185,7 +192,7 @@ int Client::execute() {
     throw InvalidReplyException();
   }
   const char *reply = replyMessage.getBody();
-  printf("Reply: \"%s\"\n", reply);
+
   strcpy(_results, reply);
   _resultState = Ready;
   resume();
@@ -341,7 +348,7 @@ void Client::stop() {
   Thread::stop();
 }
 
-void Client::fetchResults(char *buf) {
+int Client::fetchResults(char *buf) {
   State currentState;
   Operation currentOperation;
   lock();
@@ -354,7 +361,10 @@ void Client::fetchResults(char *buf) {
     pause(&_fetchingCvLock);
   }
   _resultState = Steady;
+  if(_resultState == Failed)
+    return -1;
   strcpy(buf, _results);
+  return 0;
 }
 
 void Client::setCommand(char *command) {
@@ -363,10 +373,12 @@ void Client::setCommand(char *command) {
 
 void Client::queryRSA() {
   setCommand("rsa");
+  start();
 }
 
 void Client::queryStegKey() {
   setCommand("steg");
+  start();
 }
 
 const char *Client::getId() const {
@@ -386,11 +398,12 @@ Message Client::_getReplyTimeout(time_t seconds, suseconds_t mseconds) {
 }
 
 
-
 ssize_t Client::_sendMessage(Message message){
   return _clientSocket->sendMessage(message);
 }
 
 Client::~Client() {
-
+  pthread_mutex_destroy(&_operationLock);
+  pthread_mutex_destroy(&_fetchingCvLock);
+  pthread_cond_destroy(&_fetchingCv);
 }

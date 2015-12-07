@@ -40,15 +40,12 @@ int main(int argc, char const *argv[]) {
   char buf2[2048];
   char rsa[2048];
   (void)rsa;
-  memset(command, 0, 128);
-  memset(param, 0, 128);
-  memset(buf1, 0, 2048);
 
   ClientManager clients;
 
   PeersMap peers;
 
-  HeartBeat *heartBeat = new HeartBeat(username, seederIP, seederPort);
+  HeartBeat *heartBeat = new HeartBeat(username, seederIP, seederPort, serverPort);
   Server *server = new Server(serverPort);
   server->start();
 
@@ -56,6 +53,11 @@ int main(int argc, char const *argv[]) {
   printf("Heartbeat start(%d).\n", heartBeat->start());
 
   while (strcmp(command, "quit") != 0) {
+    memset(command, 0, 128);
+    memset(param, 0, 128);
+    memset(buf1, 0, 2048);
+    memset(buf2, 0, 2048);
+
     printf("New command: ");
     scanf("%s", command);
 
@@ -84,25 +86,42 @@ int main(int argc, char const *argv[]) {
 
       for(PeersMap::iterator it = peers.begin(); it != peers.end(); ++it) {
         Peer &peer = it->second;
-        printf("Peer(%s):\nUsername: %s\n, IP: %s\nPort: %u\n", peer.getId(), peer.getUsername(), peer.getPeerAddress(), peer.getPortNumber());
+        printf("Peer(%s):\nUsername: %s\n IP: %s\nPort: %u\n", peer.getId(), peer.getUsername(), peer.getPeerAddress(), peer.getPortNumber());
       }
 
     } else if (strcmp(command, "connect-user") == 0) {
+
       printf("Target User ID: ");
       scanf("%s", command);
-      if(peers.find(command) == peers.end()) {
-        printf("Peer does not exist in your map!\n");
-        continue;
+      bool executed = false;
+      for(PeersMap::iterator it = peers.begin(); it != peers.end(); ++it) {
+        Peer &peer = it->second;
+        if (strcmp(command, peer.getId()) == 0) {
+          /*if(peers.find(command) == peers.end()) {
+            printf("Peer %s does not exist in your map!\n", command);
+            printf("Address: %s\n", peers[command].getPeerAddress());
+            fflush(stdout);
+            continue;
+          }*/
+          printf("Address: %s\n", peer.getPeerAddress());
+          printf("Exists.\n");
+          fflush(stdout);
+          const char *ip = peer.getPeerAddress();
+          uint16_t port = peer.getPortNumber();
+          Client *client = clients.get(command, username, ip, port);
+          client->queryRSA();
+          client->fetchResults(buf1);
+          printf("RSA: %s\n", buf1);
+          client->queryStegKey();
+          client->fetchResults(buf1);
+          printf("Steg Key: %s\n", buf1);
+          executed = true;
+          break;
+        }
+
       }
-      const char *ip = peers[command].getPeerAddress();
-      uint16_t port = peers[command].getPortNumber();
-      Client *client = clients.get(command, username, ip, port);
-      client->queryRSA();
-      client->fetchResults(buf1);
-      printf("RSA: %s\n", buf1);
-      client->queryStegKey();
-      client->fetchResults(buf1);
-      printf("Steg Key: %s\n", buf1);
+      if (!executed)
+        printf("Peer %s does not exist in your map!\n", command);
 
     } else if (strcmp(command, "send-image") == 0) {
       printf("Target User: ");
@@ -123,23 +142,33 @@ int main(int argc, char const *argv[]) {
       scanf("%s", command);
     } else if (strcmp(command, "ls") == 0) {
       printf("Peersmap: \n");
-      for(PeersMap::iterator it = peers.begin(); it != peers.end(); it++) {
+      for(PeersMap::iterator it = peers.begin(); it != peers.end(); ++it) {
         Peer &peer = it->second;
-        printf("Peer(%s):\nUsername: %s\n, IP: %s\nPort: %u\n", peer.getId(), peer.getUsername(), peer.getPeerAddress(), peer.getPortNumber());
+        printf("%s:\n", it->first);
+        printf("Peer(%s):\nUsername: %s\n IP: %s\nPort: %u\n", peer.getId(), peer.getUsername(), peer.getPeerAddress(), peer.getPortNumber());
+        fflush(stdout);
       }
     } else if (strcmp(command, "lsr") == 0) {
       printf("RSAs: \n");
-      for(PeersMap::iterator it = peers.begin(); it != peers.end(); it++) {
+      for(PeersMap::iterator it = peers.begin(); it != peers.end(); ++it) {
         Peer &peer = it->second;
         printf("Peer(%s):\nUsername: %s\n, RSA: %s\n", peer.getId(), peer.getUsername(), peer.getRSA());
       }
     } else if (strcmp(command, "lsk") == 0) {
       printf("Steganography keys: \n");
-      for(PeersMap::iterator it = peers.begin(); it != peers.end(); it++) {
+      for(PeersMap::iterator it = peers.begin(); it != peers.end(); ++it) {
         Peer &peer = it->second;
         printf("Peer(%s):\nUsername: %s\n, Steganography key: %s\n", peer.getId(), peer.getUsername(), peer.getStegKey());
       }
-    } else {
+    } else if (strcmp(command, "stat") == 0) {
+      printf("Status: ");
+      if (heartBeat->isConnected())
+        printf("Connected.\n");
+      else if (heartBeat->isConnecting())
+        printf("Connecting..\n");
+      else
+        printf("Disconnected.\n");
+    }else {
       printf("Unkown command: %s\n", command);
     }
   }

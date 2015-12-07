@@ -15,6 +15,7 @@ class ClientNode {
   char _username[128];
   UDPSocket *_socket;
   uint16_t _port;
+  uint16_t _serverPort;
   Job *_reponderJob;
   map<int, File *> _openFiles;
 public:
@@ -51,6 +52,10 @@ public:
   File *getFile(int fd);
 
   bool hasOpenFile(int fd);
+
+  void setServerPort(uint16_t port);
+
+  uint16_t getServerPort() const;
 
   map<int, File *> &getFileTable();
 

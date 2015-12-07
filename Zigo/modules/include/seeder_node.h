@@ -15,6 +15,7 @@ class SeederNode {
   UDPSocket *_socket;
   char _publicKey[2048];
   uint16_t _port;
+  uint16_t _serverPort;
   SeederJob *_reponderJob;
   long _timestamp;
 public:
@@ -35,6 +36,10 @@ public:
   void setPort(uint16_t port);
 
   uint16_t getPort();
+
+  void setServerPort(uint16_t port);
+
+  uint16_t getServerPort() const;
 
   void setJob(SeederJob *job);
 

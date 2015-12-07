@@ -88,6 +88,7 @@ ifeq ($(STEGHIDE_EXISTS),)
 	$(error cannot locate steghide)
 	exit 1;
 endif
+	$(ulimit -c unlimited)
 
 all : pre clean server client seeder app
 

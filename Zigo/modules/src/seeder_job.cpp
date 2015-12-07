@@ -137,12 +137,6 @@ void SeederJob::run() {
 
 bool SeederJob::reset() {
   stop();
-  if(_client->getSocket()) {
-    printf("Delete Socket!\n");
-    delete _client->getSocket();
-    printf("Deleted!\n");
-  }
-  _client->setSocket(0);
   return true;
 }
 

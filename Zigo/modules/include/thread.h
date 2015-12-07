@@ -60,6 +60,7 @@ public:
   int tryLock(pthread_mutex_t *lock) const;
   int unlock(pthread_mutex_t *lock) const;
   void addDoneCallback(ThreadCallback callback, void* parent = NULL);
+  void resetCallbacks();
   virtual ~Thread();
 };
 

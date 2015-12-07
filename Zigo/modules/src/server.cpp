@@ -74,22 +74,21 @@ void Server::listen() {
 }
 
 void Server::serveRequest(Message  &request) {
-
-  char portReply[32], username[128], rsa[2048], verificationToken[65], encryptedToken[256];
+  char portReply[32], username[128], rsa[2048], verificationToken[65], encryptedToken[256], serverPortStr[64];
+  uint16_t serverPort;
   uint32_t seederReplyTo = Settings::getInstance().getServerReplyTimeout();
-
-  char *clientAddrName = (char *)inet_ntoa(_serverSocket->getPeerAddress().sin_addr);
-  (void)clientAddrName;
 
   char *connectionStr = new char[strlen(request.getBody()) + 1];
   strcpy(connectionStr, request.getBody());
-  if (sscanf(connectionStr, "%[^;]%*c%2048c", username, rsa) != 2) {
+  if (sscanf(connectionStr, "%[^;]%*c%[^;]%*c%2048c", username, serverPortStr, rsa) != 3) {
     char invalidConnectionString[LOG_MESSAGE_LENGTH];
     sprintf(invalidConnectionString, "Invalid connection string %s", connectionStr);
     Logger::error(invalidConnectionString);
     delete connectionStr;
     return;
   }
+
+  serverPort = (uint16_t) atoi(serverPortStr);
 
   Crypto::generateRandomString(verificationToken, 64);
 
@@ -149,6 +148,8 @@ void Server::serveRequest(Message  &request) {
     ClientNode *client = _addClient(connectionStr, clientPort, job);
     client->setSocket(handlerSocket);
     client->setUsername(username);
+    client->setServerPort(serverPort);
+
 
 
     job->setClient(client);

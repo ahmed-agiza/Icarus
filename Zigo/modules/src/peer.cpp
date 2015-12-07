@@ -4,12 +4,14 @@ Peer::Peer() {
   memset(_id, 0, 128);
   memset(_address, 0, 128);
   memset(_rsa, 0, 2048);
+  memset(_stegKey, 0, 2048);
 }
 
 Peer::Peer(char *id, char *address, char *rsa, char *username, uint16_t portNumber): _portNumber(portNumber) {
   memset(_id, 0, 128);
   memset(_address, 0, 128);
   memset(_rsa, 0, 2048);
+  memset(_stegKey, 0, 2048);
   strcpy(_id, id);
   strcpy(_address, address);
   if (rsa)
@@ -35,13 +37,16 @@ Peer::Peer(const Peer &other) {
 
 Peer Peer::fromString(char *raw) {
   char id[128], username[128], ip[128], port[128];
+
   if(sscanf(raw, "%[^':']:%[^':']:%[^':']:%s", id, username, ip, port) != 4)
     throw InvalidMessageFormat();
+
   Peer peer(id, ip, NULL, username, (uint16_t) atoi(port));
   return peer;
 }
 
 PeersMap Peer::fromStringList(char *raw) {
+  raw++;
   PeersMap tempMap;
   char * pch;
   pch = strtok (raw,";");
@@ -50,6 +55,7 @@ PeersMap Peer::fromStringList(char *raw) {
       try{
         Peer tempPeer = fromString(pch);
         char *id = new char[strlen(tempPeer.getId()) + 1];
+        memset(id, 0, strlen(tempPeer.getId()) + 1);
         strcpy(id, tempPeer.getId());
         tempMap[id] = tempPeer;
       } catch (InvalidMessageFormat &e) {

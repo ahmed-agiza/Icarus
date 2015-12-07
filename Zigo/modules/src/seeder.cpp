@@ -45,15 +45,13 @@ void Seeder::listen() {
 }
 
 void Seeder::serveRequest(Message  &request) {
-  char portReply[32], username[128], rsa[2048], verificationToken[65], encryptedToken[256];
+  char portReply[32], username[128], rsa[2048], verificationToken[65], encryptedToken[256], serverPortStr[64];
+  uint16_t serverPort;
   uint32_t seederReplyTo = Settings::getInstance().getServerReplyTimeout();
-
-  char *clientAddrName = (char *)inet_ntoa(_seederSocket->getPeerAddress().sin_addr);
-  (void)clientAddrName;
 
   char *connectionStr = new char[strlen(request.getBody()) + 1];
   strcpy(connectionStr, request.getBody());
-  if (sscanf(connectionStr, "%[^;]%*c%2048c", username, rsa) != 2) {
+  if (sscanf(connectionStr, "%[^;]%*c%[^;]%*c%2048c", username, serverPortStr, rsa) != 3) {
     char invalidConnectionString[LOG_MESSAGE_LENGTH];
     sprintf(invalidConnectionString, "Invalid connection string %s", connectionStr);
     Logger::error(invalidConnectionString);
@@ -61,6 +59,7 @@ void Seeder::serveRequest(Message  &request) {
     return;
   }
 
+  serverPort = (uint16_t) atoi(serverPortStr);
 
   Crypto::generateRandomString(verificationToken, 64);
 
@@ -109,11 +108,15 @@ void Seeder::serveRequest(Message  &request) {
     _sendMessage(portReplyMessage);
 
     SeederJob *job = dynamic_cast<SeederJob *>(_jobsPool.acquire());
-    job->setId(SEEDER_ID);
     SeederNode *client = _addClient(rsa, clientPort, job);
+    printf("Setting socket..\n");
     client->setSocket(handlerSocket);
+    printf("Set!\n");
     client->setUsername(username);
+    client->setServerPort(serverPort);
+
     job->setClient(client);
+    job->setId(SEEDER_ID);
     job->setSharedData((SeedersMap *)&_clients);
     job->addDoneCallback(_threadDoneWrapper, this);
 
@@ -189,6 +192,7 @@ void *Seeder::_threadDoneWrapper(Thread *thread, void* parent) {
 }
 void Seeder::_threadDoneCallback(SeederJob *job) {
   printf("Releasing!\n");
+  _removeClient((char *) job->getClient()->getClientId());
   _jobsPool.release(job);
   printf("Done!\n");
 }

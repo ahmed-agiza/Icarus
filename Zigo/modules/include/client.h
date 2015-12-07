@@ -20,7 +20,8 @@ enum Operation {
 enum State {
   Steady = 0,
   Fetching = 1,
-  Ready = 2
+  Ready = 2,
+  Failed = 3
 };
 
 
@@ -44,6 +45,7 @@ protected:
   char _results[MAX_READ_SIZE];
   Operation _currentOperation;
   State _resultState;
+  uint16_t _serverPort;
   pthread_mutex_t _operationLock;
   pthread_mutex_t _fetchingCvLock;
   pthread_cond_t _fetchingCv;
@@ -53,14 +55,14 @@ protected:
   int _establishConnection(); //connect to server
   ssize_t _sendMessage(Message message);
 public:
-  Client(const char *username, const char * hostname, uint16_t port);
+  Client(const char *username, const char * hostname, uint16_t port, uint16_t serverPort);
   bool reset();
   void stop();
   int execute();
 
   void run();
 
-  virtual void fetchResults(char *buf);
+  virtual int fetchResults(char *buf);
 
   void setCommand(char *command);
   void queryRSA();

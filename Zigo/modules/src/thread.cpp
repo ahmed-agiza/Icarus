@@ -42,6 +42,7 @@ int Thread::start() {
 }
 
 bool Thread::reset() {
+  resetCallbacks();
   return true;
 }
 
@@ -174,6 +175,11 @@ int Thread::resume() const {
 void Thread::addDoneCallback(ThreadCallback callback, void *parent) {
   _doneCallbacks.push_back(callback);
   _parents.push_back(parent);
+}
+
+void Thread::resetCallbacks() {
+  _doneCallbacks.clear();
+  _parents.clear();
 }
 
 Thread::~Thread() {
