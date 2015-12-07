@@ -33,11 +33,14 @@ void SeederJob::run() {
   sprintf(servingMessage, "Serving client %s from %lu", clientAddrName, currentId);
   Logger::info(servingMessage);
 
-
   SeedersMap *clients = static_cast<SeedersMap*>(getSharedData());
 
   lock();
+  printf("Adding user %s\n", _client->getUsername());
+  fflush(stdout);
   (*clients)[(char *)_client->getClientId()] = _client;
+  printf("Added user %s\n", _client->getUsername());
+  fflush(stdout);
   unlock();
 
   printf("%s\n", _client->getClientId());
@@ -65,10 +68,7 @@ void SeederJob::run() {
       break;
     }
 
-    /*char newConnectionMessage[LOG_MESSAGE_LENGTH];
-    sprintf(newConnectionMessage, "Ping from %s(%d): %s", handlerSocket->getPeerName(), handlerSocket->getPortNumber(), request.getBody());
-    Logger::info(newConnectionMessage);
-    fflush(stdout);*/
+
     if (request.getType() == Query) {
       char result[5000];
       char peer[2048];
@@ -79,11 +79,11 @@ void SeederJob::run() {
         qtype = 1;
       else if (strcmp(type, "id") == 0)
         qtype = 2;
-      else  if (strcmp(request.getBody(), "") == 0)
+      else  if (strcmp(request.getBody(), "1") == 0)
         qtype = 3;
       else {
         char invalidRequestMessage[LOG_MESSAGE_LENGTH];
-        sprintf(invalidRequestMessage, "Invalid request type: %s", request.getBytes());
+        sprintf(invalidRequestMessage, "Invalid request body: %s", request.getBytes());
         Logger::error(invalidRequestMessage);
         continue;
       }
@@ -91,11 +91,10 @@ void SeederJob::run() {
       for (std::map<char *, SeederNode *, StringCompare>::iterator it = clients->begin(); it != clients->end(); ++it) {
         SeederNode *client = it->second;
         if (qtype == 3 || (qtype == 1 && strcmp(body, client->getUsername()) == 0)) {
-            client->getPeer(peer);
-            strcat(result, peer);
-            strcat(result, ";");
-          }
-        if (qtype == 2 && client->getClientId() == 0) {
+          client->getPeer(peer);
+          strcat(result, peer);
+          strcat(result, ";");
+        }else if (qtype == 2 && strcmp(client->getClientId(), body) == 0) {
           client->getPeer(peer);
           strcat(result, peer);
           strcat(result, ";");
@@ -115,40 +114,40 @@ void SeederJob::run() {
       continue;
     }
 
-    //int ping = sprintf(ack, "%zd", request.getMessagSize());
-    //(void)ping;
     Message pongReply(Pong, "1", _id, DEFAULT_MESSAGE_ID);
     ssize_t sentPong = handlerSocket->sendMessage(pongReply);
     (void)sentPong;
   }
   printf("Client disconneced!\n");
   lock();
-  clients->erase((char *)_client->getClientId());
+  printf("Removing user: %s\n", _client->getUsername());
+  char *clientId = (char *) _client->getClientId();
+  clients->erase(clientId);
+  printf("Removed %s\n", _client->getUsername());
   unlock();
 
   char servingDoneMessage[LOG_MESSAGE_LENGTH];
+  printf("getPeerName() %d\n", (int)(handlerSocket == NULL));
+  fflush(stdout);
   sprintf(servingDoneMessage, "Done serving %s(%d)", handlerSocket->getPeerName(), handlerSocket->getPortNumber());
+  printf("Done!\n");
+  fflush(stdout);
   Logger::info(servingDoneMessage);
 }
 
 bool SeederJob::reset() {
   stop();
-  if(_client->getSocket())
-    delete _client->getSocket();;
+  if(_client->getSocket()) {
+    printf("Delete Socket!\n");
+    delete _client->getSocket();
+    printf("Deleted!\n");
+  }
   _client->setSocket(0);
   return true;
 }
 
 void SeederJob::stop() {
   Thread::stop();
-}
-
-void SeederJob::setSharedData(void *ptr) {
-  _shared = ptr;
-}
-
-void *SeederJob::getSharedData() const {
-  return _shared;
 }
 
 void SeederJob::setId(char *id) {

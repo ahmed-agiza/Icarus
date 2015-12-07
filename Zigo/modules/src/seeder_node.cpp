@@ -76,12 +76,17 @@ void SeederNode::getPeer(char* peer) {
   char port[128];
   strcat(peer, getClientId());
   strcat(peer, ":");
+  printf("Username(getPeer()): %s\n", getUsername());
   strcat(peer, getUsername());
   strcat(peer, ":");
   strcat(peer, _socket->getPeerName());
   strcat(peer, ":");
   sprintf(port, "%d", (int)getPort());
   strcat(peer, port);
+}
+
+bool SeederNode::isActive() const {
+  return (_socket != NULL && _socket != 0);
 }
 
 long SeederNode::getTimestamp() const {

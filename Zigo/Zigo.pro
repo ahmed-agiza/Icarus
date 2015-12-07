@@ -57,6 +57,7 @@ HEADERS  += mainwindow.h \
     modules/include/steganography.h \
     modules/include/thread.h \
     modules/include/thread_pool.h \
-    modules/include/udp_socket.h
+    modules/include/udp_socket.h \
+    permission.h
 
 FORMS    += mainwindow.ui

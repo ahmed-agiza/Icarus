@@ -50,6 +50,8 @@ public:
 
   long getTimestamp() const;
 
+  bool isActive() const;
+
   ~SeederNode();
 };
 

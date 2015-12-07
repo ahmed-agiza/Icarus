@@ -34,7 +34,8 @@ void Seeder::listen() {
     }
 
     char newRequestMessage[LOG_MESSAGE_LENGTH];
-    sprintf(newRequestMessage, "Request from %s(%d): %s", _seederSocket->getPeerName(), _seederSocket->getPortNumber(), request.getBody());
+    //sprintf(newRequestMessage, "Request from %s(%d): %s", _seederSocket->getPeerName(), _seederSocket->getPortNumber(), request.getBody());
+    sprintf(newRequestMessage, "Request from %s(%d)", _seederSocket->getPeerName(), _seederSocket->getPortNumber());
     Logger::info(newRequestMessage);
     fflush(stdout);
     serveRequest(request);
@@ -44,7 +45,7 @@ void Seeder::listen() {
 }
 
 void Seeder::serveRequest(Message  &request) {
-  char portReply[32], username[128], rsa[2048], verificationToken[64], encryptedToken[256];
+  char portReply[32], username[128], rsa[2048], verificationToken[65], encryptedToken[256];
   uint32_t seederReplyTo = Settings::getInstance().getServerReplyTimeout();
 
   char *clientAddrName = (char *)inet_ntoa(_seederSocket->getPeerAddress().sin_addr);
@@ -114,8 +115,7 @@ void Seeder::serveRequest(Message  &request) {
     client->setUsername(username);
     job->setClient(client);
     job->setSharedData((SeedersMap *)&_clients);
-    job->setParent(this);
-    job->setDoneCallback(_threadDoneWrapper);
+    job->addDoneCallback(_threadDoneWrapper, this);
 
     if(job->start()) {
       printf("Serving client..\n");

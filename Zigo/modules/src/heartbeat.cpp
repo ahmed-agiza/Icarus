@@ -1,98 +1,13 @@
 #include "heartbeat.h"
 
-HeartBeat::HeartBeat(const char *username, const char * hostname, uint16_t port):Thread() {
+HeartBeat::HeartBeat(const char *username, const char * hostname, uint16_t port):Client(username, hostname, port) {
   _currentOperation = Pinging;
   _resultState = Steady;
 
-  memset(_username, 0, 128);
-  memset(_id, 0, 128);
   memset(_results, 0, MAX_READ_SIZE);
 
-  if (!File::exists(PUBLIC_KEY_PATH) || !File::exists(PRIVATE_KEY_PATH)) {
-    Crypto::generateKeyPair(PRIVATE_KEY_PATH, PUBLIC_KEY_PATH);
-  }
-
-  strcpy(_username, username);
-
-  File *publicKeyFile = File::open(PUBLIC_KEY_PATH, O_RDONLY);
-  File *privateKeyFile = File::open(PRIVATE_KEY_PATH, O_RDONLY);
-  memset(_id, 0, 128);
-  memset(_publicRSA, 0, 2048);
-  memset(_privateRSA, 0, 2048);
-  publicKeyFile->read(_publicRSA, 2048);
-  privateKeyFile->read(_privateRSA, 2048);
-  publicKeyFile->close();
-  privateKeyFile->close();
-  delete publicKeyFile;
-  delete privateKeyFile;
-
-  Crypto::md5Hash(_publicRSA, _id);
-  printf("ID: %s\n", _id);
-
   _state = Disconnected;
-  strcpy(_hostname, hostname);
-  _clientSocket = new UDPSocket;
-  _clientSocket->initialize(_hostname, port);
-  _establishConnection();
 
-
-  if (pthread_mutex_init(&_operationLock, NULL) != 0)
-    throw MutexInitializationException();
-  if (pthread_mutex_init(&_fetchingCvLock, NULL) != 0)
-    throw MutexInitializationException();
-  if (pthread_cond_init(&_fetchingCv, NULL))
-    throw CVInitializationException();
-  setMutex(&_operationLock);
-  setCV(&_fetchingCv);
-}
-
-void HeartBeat::_establishConnection() {
-  //pid_t pid = getpid();
-
-  char connectionString[2176], verificationStr[2048];
-  unsigned char decoded[2048];
-  size_t decodedLength = 2048;
-  sprintf(connectionString, "%s;%s", _username, _publicRSA);
-
-  Message connectionMessage = Message(Connect, connectionString, _id, DEFAULT_MESSAGE_ID);
-
-  ssize_t sentBytes = _sendMessage(connectionMessage);
-
-  if(sentBytes < 0)
-    return;
-  uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
-
-  printf("Attempting to connect..\n");
-
-  Message tokenReply = _getReplyTimeout(clientReplyTo, 0);
-  if (tokenReply.getType() != Reply) {
-    char invalidReplyMessage[LOG_MESSAGE_LENGTH];
-    sprintf(invalidReplyMessage, "Invalid reply: %s", tokenReply.getBytes());
-    Logger::error(invalidReplyMessage);
-    throw InvalidReplyException();
-  }
-
-  Crypto::base64Decode((char *)tokenReply.getBody(), strlen(tokenReply.getBody()), decoded, &decodedLength);
-  Crypto::decrypt(_privateRSA, (char *)decoded, verificationStr);
-
-  Message verificationMessage(Verify, verificationStr, _id, DEFAULT_MESSAGE_ID);
-  _sendMessage(verificationMessage);
-
-  Message portReply = _getReplyTimeout(clientReplyTo, 0);
-
-  if (portReply.getType() != Accept) {
-    char invalidReplyMessage[LOG_MESSAGE_LENGTH];
-    sprintf(invalidReplyMessage, "Invalid reply: %s", portReply.getBytes());
-    Logger::error(invalidReplyMessage);
-    throw InvalidReplyException();
-  }
-
-  _port = (uint16_t)strtoull(portReply.getBody(), NULL, 0);
-  char connectionPortMessage[LOG_MESSAGE_LENGTH];
-  sprintf(connectionPortMessage, "Connecting on port: %u", _port);
-  Logger::info(connectionPortMessage);
-
-  _clientSocket->setPort(_port);
 }
 
 //start sending messages from client.
@@ -104,6 +19,11 @@ void HeartBeat::run() {
 
   uint32_t maxRetry = Settings::getInstance().getRetryTimes();
   uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
+
+  if (_establishConnection() < 0) {
+    printf("Connection failed!\n");
+    return;
+  }
 
   while(1) {
     Operation currentOperation;
@@ -163,7 +83,7 @@ void HeartBeat::run() {
 
     } else if (currentOperation == Querying) {
       _resultState = Fetching;
-      Message queryMessage(Query, "1", _id, DEFAULT_MESSAGE_ID);
+      Message queryMessage(Query, _queryParam, _id, DEFAULT_MESSAGE_ID);
       sentBytes = _sendMessage(queryMessage); //send message to server
       Message resultReply;
       try {
@@ -195,20 +115,19 @@ void HeartBeat::queryOnline() {
   _currentOperation = Querying;
   unlock();
 }
-void HeartBeat::fetchResults(char *buf) {
-  State currentState;
-  Operation currentOperation;
+
+void HeartBeat::queryUsername(char *username) {
   lock();
-  currentOperation = _currentOperation;
-  currentState = _resultState;
+  _currentOperation = Querying;
+  sprintf(_queryParam, "username=%s", username);
   unlock();
-  if (currentState != Ready){
-    if(currentOperation != Querying)
-      throw InvalidOperationContext();
-    pause(&_fetchingCvLock);
-  }
-  _resultState = Steady;
-  strcpy(buf, _results);
+}
+
+void HeartBeat::queryId(char *id) {
+  lock();
+  _currentOperation = Querying;
+  sprintf(_queryParam, "id=%s", id);
+  unlock();
 }
 
 bool HeartBeat::reset() {
@@ -220,18 +139,6 @@ void HeartBeat::stop() {
   Thread::stop();
 }
 
-Message HeartBeat::_getReply() {
-  return _clientSocket->getMessage();
-}
-
-Message HeartBeat::_getReplyTimeout(time_t seconds, suseconds_t mseconds) {
-  return _clientSocket->recvMessageTimeout(seconds, mseconds);
-}
-
-
-ssize_t HeartBeat::_sendMessage(Message message){
-  return _clientSocket->sendMessage(message);
-}
 
 HeartBeat::~HeartBeat() {
   pthread_mutex_destroy(&_operationLock);

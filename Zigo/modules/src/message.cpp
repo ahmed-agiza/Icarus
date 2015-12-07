@@ -147,6 +147,8 @@ MessageType Message:: _letterToType(char typeLetter) const {
     return Accept;
   else if (typeLetter == 'D')
     return Decline;
+  else if (typeLetter == 'Z')
+    return Auth;
   else if (typeLetter == 'V')
     return Verify;
   else if (typeLetter == 'P')
@@ -188,6 +190,8 @@ char Message::_typeToLetter(MessageType type) const {
     return 'Y';
   else if (type == Decline)
     return 'D';
+  else if (type == Auth)
+    return 'Z';
   else if (type == Verify)
     return 'V';
   else if (type == Acknowledge)

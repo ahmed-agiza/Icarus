@@ -1,6 +1,9 @@
 #ifndef THREAD_H
 #define THREAD_H
 
+#include <vector>
+using std::vector;
+
 #include <pthread.h>
 #include <stdio.h>
 
@@ -18,13 +21,14 @@ class Thread {
   bool _constructed;
   bool _joinRequested;
   bool _done;
-  void *_parent;
   pthread_t *_thread;
   pthread_mutex_t *_lock;
   pthread_mutex_t _internalLock;
   pthread_cond_t *_cv;
   pthread_cond_t _internalCv;
-  ThreadCallback _doneCallback;
+  vector<ThreadCallback> _doneCallbacks;
+  vector<void *> _parents;
+  void *_shared;
   static void *_run(void *thisThread);
 protected:
   bool _terminationFlag;
@@ -43,6 +47,8 @@ public:
   pthread_t getId() const;
   pthread_mutex_t *getMutex() const;
   pthread_cond_t *getCV() const;
+  void setSharedData(void *ptr);
+  void *getSharedData() const;
   void setMutex(pthread_mutex_t *lock);
   void setCV(pthread_cond_t *cv);
   int lock() const;
@@ -53,8 +59,7 @@ public:
   int lock(pthread_mutex_t *lock) const;
   int tryLock(pthread_mutex_t *lock) const;
   int unlock(pthread_mutex_t *lock) const;
-  void setParent(void *parent);
-  void setDoneCallback(ThreadCallback callback);
+  void addDoneCallback(ThreadCallback callback, void* parent = NULL);
   virtual ~Thread();
 };
 

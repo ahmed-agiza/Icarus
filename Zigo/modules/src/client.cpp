@@ -1,7 +1,7 @@
 #include "client.h"
 
 
-Client::Client(const char *username, const char * hostname, uint16_t port): Thread() {
+Client::Client(const char *username, const char * hostname, uint16_t port): Thread(), _clientSocket(0), _connectionPort(port), _executed(false), _busy(false), _currentOperation(Idle) {
   strcpy(_hostname, hostname);
   strcpy(_username, username);
   memset(_id, 0, 128);
@@ -25,30 +25,41 @@ Client::Client(const char *username, const char * hostname, uint16_t port): Thre
   Crypto::md5Hash(_publicRSA, _id);
   printf("ID: %s\n", _id);
 
-  _clientSocket = new UDPSocket;
-  _clientSocket->initialize(_hostname, port);
-  _establishConnection();
+  if (pthread_mutex_init(&_operationLock, NULL) != 0)
+    throw MutexInitializationException();
+  if (pthread_mutex_init(&_fetchingCvLock, NULL) != 0)
+    throw MutexInitializationException();
+  if (pthread_cond_init(&_fetchingCv, NULL))
+    throw CVInitializationException();
+  setMutex(&_operationLock);
+  setCV(&_fetchingCv);
+
+
 
 }
 
-void Client::_establishConnection() {
-    //pid_t pid = getpid();
+int Client::_establishConnection() {
+  if (_clientSocket)
+    delete _clientSocket;
+  _clientSocket = new UDPSocket;
+  _clientSocket->initialize(_hostname, _connectionPort);
 
-    char connectionString[2176], verificationStr[2048];
-    unsigned char decoded[2048];
-    size_t decodedLength = 2048;
-    sprintf(connectionString, "%s;%s", _username, _publicRSA);
+  char connectionString[2176], verificationStr[2048];
+  unsigned char decoded[2048];
+  size_t decodedLength = 2048;
+  sprintf(connectionString, "%s;%s", _username, _publicRSA);
 
+  try {
     Message connectionMessage = Message(Connect, connectionString, _id, DEFAULT_MESSAGE_ID);
 
     ssize_t sentBytes = _sendMessage(connectionMessage);
 
     if(sentBytes < 0)
-      return;
+      return -2;
     uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
 
     printf("Attempting to connect..\n");
-
+    fflush(stdout);
     Message tokenReply = _getReplyTimeout(clientReplyTo, 0);
     if (tokenReply.getType() != Reply) {
       char invalidReplyMessage[LOG_MESSAGE_LENGTH];
@@ -78,15 +89,108 @@ void Client::_establishConnection() {
     Logger::info(connectionPortMessage);
 
     _clientSocket->setPort(_port);
+    return 0;
+  } catch (ReceiveTimeoutException &e) {
+    fprintf(stderr, "--%s\n", e.what());
+    return -1;
+  }
 }
 
 void Client::run() {
-  connect();
+  _busy = true;
+  if (_establishConnection() < 0) {
+    printf("Connection failed!\n");
+    return;
+  }
+  execute();
+  _busy = false;
 }
 
 //start sending messages from client.
-int Client::connect() {
-  char tempBuff[2048]; //max char from user input
+int Client::execute() {
+  _resultState = Fetching;
+  ssize_t sentAckBytes;
+  int success = 0;
+  int retry = -1;
+  char ackBack[2];
+  bool terminated = false;
+  (void) terminated;
+
+  lock();
+  Message requestMessage = Message(Request, _queryParam, _id, DEFAULT_MESSAGE_ID); //wrap the text in message form
+  unlock();
+  uint32_t maxRetry = Settings::getInstance().getRetryTimes();
+  uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
+
+  while(!success && retry < (int)maxRetry) { //try to re-send packet if failed within MAX_RETRY
+
+    ssize_t sentBytes = _sendMessage(requestMessage); //send message to server
+
+    if(sentBytes < 0)
+      return -1;
+
+    if(_terminationRequest()){
+      break;
+    }
+
+    Message ackReply = _getReplyTimeout(clientReplyTo, 0);
+
+    if (ackReply.getType() != Acknowledge) {
+      char invalidReplyMessage[LOG_MESSAGE_LENGTH];
+      sprintf(invalidReplyMessage, "Invalid reply: %s", ackReply.getBytes());
+      Logger::error(invalidReplyMessage);
+      throw InvalidReplyException();
+    }
+
+    uint32_t ackNumber = (uint32_t) strtoull(ackReply.getBody(), NULL, 0);
+
+    success = (ackNumber == sentBytes);
+
+
+    sprintf(ackBack, "%d", (int) success);
+    Message ackBackReply(Acknowledge, ackBack, _id, DEFAULT_MESSAGE_ID);
+
+    sentAckBytes = _sendMessage(ackBackReply);
+    (void) sentAckBytes;
+
+    if(!success){ //packet loss
+      char misacknowledgmentMessage[LOG_MESSAGE_LENGTH];
+      sprintf(misacknowledgmentMessage, "Mismatch between acknowledgment and sent bytes (%d==%d)?.", (int)sentBytes, (int) ackNumber);
+      Logger::error(misacknowledgmentMessage);
+      retry++;
+      if(retry < (int)maxRetry){
+        char retryMessage[LOG_MESSAGE_LENGTH];
+        sprintf(retryMessage, "Retrying to send the message(%d)..", retry);
+        Logger::warn(retryMessage);
+      }
+    }
+  }
+
+
+  if(!success){
+    Logger::error("Failed to deliver your message.");
+    return -1;
+  }
+
+
+
+  printf("Receiving reply..\n");
+
+
+  Message replyMessage = _getReplyTimeout(clientReplyTo, 0);
+  if (replyMessage.getType() != Reply) {
+    char invalidReplyMessage[LOG_MESSAGE_LENGTH];
+    sprintf(invalidReplyMessage, "Invalid reply: %s", replyMessage.getBytes());
+    Logger::error(invalidReplyMessage);
+    throw InvalidReplyException();
+  }
+  const char *reply = replyMessage.getBody();
+  printf("Reply: \"%s\"\n", reply);
+  strcpy(_results, reply);
+  _resultState = Ready;
+  resume();
+  return 0;
+  /*char tempBuff[2048]; //max char from user input
   char ackBack[2];
   bool success; //success if message was sent wihtout any packet loss
   ssize_t sentBytes;  //number of bytes sent to the server
@@ -225,7 +329,7 @@ int Client::connect() {
     printf("Reply: \"%s\"\n", reply);
 
   }
-  return 0;
+  return 0;*/
 }
 
 bool Client::reset() {
@@ -237,6 +341,42 @@ void Client::stop() {
   Thread::stop();
 }
 
+void Client::fetchResults(char *buf) {
+  State currentState;
+  Operation currentOperation;
+  lock();
+  currentOperation = _currentOperation;
+  currentState = _resultState;
+  unlock();
+  if (currentState != Ready){
+    if(currentOperation == Pinging)
+      throw InvalidOperationContext();
+    pause(&_fetchingCvLock);
+  }
+  _resultState = Steady;
+  strcpy(buf, _results);
+}
+
+void Client::setCommand(char *command) {
+  strcpy(_queryParam, command);
+}
+
+void Client::queryRSA() {
+  setCommand("rsa");
+}
+
+void Client::queryStegKey() {
+  setCommand("steg");
+}
+
+const char *Client::getId() const {
+  return _id;
+}
+
+State Client::checkState() const {
+  return _resultState;
+}
+
 Message Client::_getReply() {
   return _clientSocket->getMessage();
 }
@@ -244,6 +384,7 @@ Message Client::_getReply() {
 Message Client::_getReplyTimeout(time_t seconds, suseconds_t mseconds) {
   return _clientSocket->recvMessageTimeout(seconds, mseconds);
 }
+
 
 
 ssize_t Client::_sendMessage(Message message){

@@ -10,6 +10,13 @@ public:
 	}
 };
 
+class InvalidMessageFormat : public NetworkException {
+public:
+	virtual const char* what() const throw() {
+		return "Invalid message format.";
+	}
+};
+
 
 class SettingsLoadException : public NetworkException {
 public:

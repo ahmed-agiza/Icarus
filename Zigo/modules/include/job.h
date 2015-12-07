@@ -7,8 +7,9 @@
 
 class Job : public Thread {
   ClientNode *_client;
-  void *_shared;
   char _id[128];
+  char *_serverRSA;
+  char *_serverStegKey;
 public:
   Job();
   Job(const char *id);
@@ -22,9 +23,11 @@ public:
   ClientNode *getClient() const;
   void setClient(ClientNode *);
 
-  //TO BE MERGED WITH THE THREAD CLASS!!!!!!!!!!!!
-  void setSharedData(void *ptr);
-  void *getSharedData() const;
+  void setServerRSA(char *key);
+  const char *getServerRSA() const;
+
+  void setStegKey(char *key);
+  const char *getStegKey() const;
 
   void setId(char *id);
 

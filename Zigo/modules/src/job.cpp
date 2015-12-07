@@ -37,14 +37,14 @@ void Job::run() {
   //handlerSocket->setRecvTimeout(2, 0);
   char reply[2048];
   char ack[32];
-  bool *terminated = (bool*) getSharedData();
+  bool terminated = false;
 
   while(1){
     Message request;
     printf("Waiting..\n");
     while(1) {
       try {
-        if(*terminated || _terminationRequest()) {
+        if(terminated || _terminationRequest()) {
           break;
         }
         request = handlerSocket->recvMessageTimeout(2, 0);
@@ -54,7 +54,7 @@ void Job::run() {
       break;
     }
 
-    if(*terminated || _terminationRequest()) {
+    if(terminated || _terminationRequest()) {
       char serverTerminationMessage[LOG_MESSAGE_LENGTH];
       sprintf(serverTerminationMessage, "Closing %lu because of server termination..", currentId);
       Logger::info(serverTerminationMessage);
@@ -186,11 +186,11 @@ void Job::run() {
 
     if(request.isTerminationMessage()) {
       handlerSocket->lock();
-      *terminated = true;
+      terminated = true;
       break;
     }
 
-    if(*terminated) {
+    if(terminated) {
       break;
     }
 
@@ -216,8 +216,16 @@ void Job::run() {
       continue;
     }
 
-    int replySize = sprintf(reply, "You sent: %s", request.getBody());
-    (void)replySize;
+    int replySize;
+
+    if (strcmp(request.getBody(), "rsa") == 0) {
+      replySize = sprintf(reply, "%s", getServerRSA());
+    } else if (strcmp(request.getBody(), "steg") == 0) {
+      replySize = sprintf(reply, "%s", getStegKey());
+    } else {
+      replySize = sprintf(reply, "You sent: %s", request.getBody());
+    }
+    (void) replySize;
 
     Message replyMessage(Reply, reply, _id, DEFAULT_MESSAGE_ID);
     handlerSocket->sendMessage(replyMessage);
@@ -243,18 +251,26 @@ void Job::stop() {
   Thread::stop();
 }
 
-void Job::setSharedData(void *ptr) {
-  _shared = ptr;
-}
-
-void *Job::getSharedData() const {
-  return _shared;
-}
 
 void Job::setId(char *id) {
   strcpy(_id, id);
 }
 
+void Job::setServerRSA(char *key) {
+  _serverRSA = key;
+}
+
+const char *Job::getServerRSA() const {
+  return _serverRSA;
+}
+
+void Job::setStegKey(char *key) {
+  _serverStegKey = key;
+}
+
+const char *Job::getStegKey() const {
+  return _serverStegKey;
+}
 
 
 Job::~Job(){

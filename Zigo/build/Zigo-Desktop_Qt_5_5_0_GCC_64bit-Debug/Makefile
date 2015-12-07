@@ -238,7 +238,8 @@ DIST          = /home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/mkspecs/features/spec_pr
 		../../modules/include/steganography.h \
 		../../modules/include/thread.h \
 		../../modules/include/thread_pool.h \
-		../../modules/include/udp_socket.h ../../main.cpp \
+		../../modules/include/udp_socket.h \
+		../../permission.h ../../main.cpp \
 		../../mainwindow.cpp \
 		../../modules/src/client.cpp \
 		../../modules/src/client_node.cpp \
@@ -571,7 +572,7 @@ dist: distdir FORCE
 distdir: FORCE
 	@test -d $(DISTDIR) || mkdir -p $(DISTDIR)
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
-	$(COPY_FILE) --parents ../../mainwindow.h ../../modules/include/client.h ../../modules/include/client_node.h ../../modules/include/crypto.h ../../modules/include/file.h ../../modules/include/heartbeat.h ../../modules/include/job.h ../../modules/include/logger.h ../../modules/include/message.h ../../modules/include/network_exceptions.h ../../modules/include/peer.h ../../modules/include/seeder.h ../../modules/include/seeder_job.h ../../modules/include/seeder_node.h ../../modules/include/server.h ../../modules/include/settings.h ../../modules/include/steganography.h ../../modules/include/thread.h ../../modules/include/thread_pool.h ../../modules/include/udp_socket.h $(DISTDIR)/
+	$(COPY_FILE) --parents ../../mainwindow.h ../../modules/include/client.h ../../modules/include/client_node.h ../../modules/include/crypto.h ../../modules/include/file.h ../../modules/include/heartbeat.h ../../modules/include/job.h ../../modules/include/logger.h ../../modules/include/message.h ../../modules/include/network_exceptions.h ../../modules/include/peer.h ../../modules/include/seeder.h ../../modules/include/seeder_job.h ../../modules/include/seeder_node.h ../../modules/include/server.h ../../modules/include/settings.h ../../modules/include/steganography.h ../../modules/include/thread.h ../../modules/include/thread_pool.h ../../modules/include/udp_socket.h ../../permission.h $(DISTDIR)/
 	$(COPY_FILE) --parents ../../main.cpp ../../mainwindow.cpp ../../modules/src/client.cpp ../../modules/src/client_node.cpp ../../modules/src/crypto.cpp ../../modules/src/file.cpp ../../modules/src/heartbeat.cpp ../../modules/src/job.cpp ../../modules/src/logger.cpp ../../modules/src/message.cpp ../../modules/src/peer.cpp ../../modules/src/seeder.cpp ../../modules/src/seeder_job.cpp ../../modules/src/seeder_node.cpp ../../modules/src/server.cpp ../../modules/src/settings.cpp ../../modules/src/steganography.cpp ../../modules/src/thread.cpp ../../modules/src/thread_pool.cpp ../../modules/src/udp_socket.cpp $(DISTDIR)/
 	$(COPY_FILE) --parents ../../mainwindow.ui $(DISTDIR)/
 
@@ -704,6 +705,25 @@ moc_mainwindow.cpp: /home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/QM
 		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtGui/qtouchdevice.h \
 		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qtabwidget.h \
 		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtGui/qicon.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/QListWidgetItem \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qlistwidget.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qlistview.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qabstractitemview.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qabstractscrollarea.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qframe.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtCore/qabstractitemmodel.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtCore/qitemselectionmodel.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qabstractitemdelegate.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qstyleoption.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qabstractspinbox.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtGui/qvalidator.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtCore/qregularexpression.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qslider.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qabstractslider.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qstyle.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qtabbar.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qrubberband.h \
+		../../permission.h \
 		../../mainwindow.h
 	/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/bin/moc $(DEFINES) -I/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/mkspecs/linux-g++ -I/home/ahmed/Documents/Git/Icarus/Zigo -I/home/ahmed/Documents/Git/Icarus/Zigo/modules/include -I/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include -I/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets -I/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtGui -I/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtCore -I. ../../mainwindow.h -o moc_mainwindow.cpp
 
@@ -831,6 +851,25 @@ main.o: ../../main.cpp ../../mainwindow.h \
 		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtGui/qtouchdevice.h \
 		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qtabwidget.h \
 		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtGui/qicon.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/QListWidgetItem \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qlistwidget.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qlistview.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qabstractitemview.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qabstractscrollarea.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qframe.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtCore/qabstractitemmodel.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtCore/qitemselectionmodel.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qabstractitemdelegate.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qstyleoption.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qabstractspinbox.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtGui/qvalidator.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtCore/qregularexpression.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qslider.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qabstractslider.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qstyle.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qtabbar.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qrubberband.h \
+		../../permission.h \
 		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/QApplication \
 		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qapplication.h \
 		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtCore/qcoreapplication.h \
@@ -850,6 +889,7 @@ main.o: ../../main.cpp ../../mainwindow.h \
 		../../modules/include/client_node.h \
 		../../modules/include/file.h \
 		../../modules/include/thread_pool.h \
+		../../modules/include/client.h \
 		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtCore/QDebug
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o ../../main.cpp
 
@@ -959,22 +999,9 @@ mainwindow.o: ../../mainwindow.cpp ../../mainwindow.h \
 		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtGui/qtouchdevice.h \
 		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qtabwidget.h \
 		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtGui/qicon.h \
-		ui_mainwindow.h \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtCore/QVariant \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/QAction \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qaction.h \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qactiongroup.h \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/QApplication \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qapplication.h \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtCore/qcoreapplication.h \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtCore/qeventloop.h \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qdesktopwidget.h \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtGui/qguiapplication.h \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtGui/qinputmethod.h \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/QButtonGroup \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qbuttongroup.h \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/QHeaderView \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qheaderview.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/QListWidgetItem \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qlistwidget.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qlistview.h \
 		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qabstractitemview.h \
 		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qabstractscrollarea.h \
 		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qframe.h \
@@ -990,14 +1017,22 @@ mainwindow.o: ../../mainwindow.cpp ../../mainwindow.h \
 		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qstyle.h \
 		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qtabbar.h \
 		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qrubberband.h \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/QMenuBar \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qmenubar.h \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qmenu.h \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/QStatusBar \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qstatusbar.h \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/QToolBar \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qtoolbar.h \
-		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/QWidget
+		../../permission.h \
+		ui_mainwindow.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/QTableWidgetItem \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qtablewidget.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qtableview.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtCore/QString \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtCore/QStringList \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/QMessageBox \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qmessagebox.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qdialog.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/QFileDialog \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtWidgets/qfiledialog.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtCore/qdir.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtCore/qfileinfo.h \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtCore/QFile \
+		/home/ahmed/Programs/Qt5.5.0/5.5/gcc_64/include/QtCore/QDebug
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o mainwindow.o ../../mainwindow.cpp
 
 client.o: ../../modules/src/client.cpp ../../modules/include/client.h \

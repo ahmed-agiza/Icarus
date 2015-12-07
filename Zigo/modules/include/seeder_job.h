@@ -9,11 +9,14 @@ using std::map;
 #include "udp_socket.h"
 #include "seeder_node.h"
 
+#ifndef STRING_COMPARE_OPERATOR
+#define STRING_COMPARE_OPERATOR
 struct StringCompare {
    bool operator()(char const *a, char const *b) {
       return (strcmp(a, b) != 0);
    }
 };
+#endif
 
 typedef map<char *, SeederNode *, StringCompare> SeedersMap;
 
@@ -33,10 +36,6 @@ public:
 
   SeederNode *getClient() const;
   void setClient(SeederNode *);
-
-  //TO BE MERGED WITH THE THREAD CLASS!!!!!!!!!!!!
-  void setSharedData(void *ptr);
-  void *getSharedData() const;
 
   void setId(char *id);
 

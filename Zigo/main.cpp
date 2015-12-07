@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
     MainWindow w;
     w.show();
 
-   try {
+    /*try {
         Server *server = new Server(9999);
         server->start();
         //server->wait();
@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "%s\n", e);
     }
 
-    try {
+   try {
         Client *client = new Client("ahmed", "127.0.0.1", 9999);
         int clientRC = client->start();
         //client->wait();
@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
         Logger::error(e.what());
     } catch (const char *e) {
         Logger::error(e);
-    }
+    }*/
 
     return a.exec();
 }
