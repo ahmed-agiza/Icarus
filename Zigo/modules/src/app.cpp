@@ -2,7 +2,7 @@
 #include "client_manager.h"
 #include "heartbeat.h"
 #include "peer.h"
-
+#include "steganography.h"
 #include <map>
 using std::map;
 
@@ -34,6 +34,7 @@ int main(int argc, char const *argv[]) {
   (void) serverPort;
   const char *seederIP = argv[3];
   uint16_t seederPort = (uint16_t) atoi(argv[4]);
+  char appId[128];
   char command[128];
   char param[128];
   char buf1[2048];
@@ -46,11 +47,13 @@ int main(int argc, char const *argv[]) {
   PeersMap peers;
 
   HeartBeat *heartBeat = new HeartBeat(username, seederIP, seederPort, serverPort);
+  strcpy(appId, heartBeat->getId());
   Server *server = new Server(serverPort);
   server->start();
 
   heartBeat->addDoneCallback(heartBeatDisconnected);
   printf("Heartbeat start(%d).\n", heartBeat->start());
+  printf("App ID: %s\n", appId);
 
   while (strcmp(command, "quit") != 0) {
     memset(command, 0, 128);
@@ -97,12 +100,6 @@ int main(int argc, char const *argv[]) {
       for(PeersMap::iterator it = peers.begin(); it != peers.end(); ++it) {
         Peer &peer = it->second;
         if (strcmp(command, peer.getId()) == 0) {
-          /*if(peers.find(command) == peers.end()) {
-            printf("Peer %s does not exist in your map!\n", command);
-            printf("Address: %s\n", peers[command].getPeerAddress());
-            fflush(stdout);
-            continue;
-          }*/
           printf("Address: %s\n", peer.getPeerAddress());
           printf("Exists.\n");
           fflush(stdout);
@@ -112,9 +109,11 @@ int main(int argc, char const *argv[]) {
           client->queryRSA();
           client->fetchResults(buf1);
           printf("RSA: %s\n", buf1);
+          peer.setRSA(buf1);
           client->queryStegKey();
-          client->fetchResults(buf1);
-          printf("Steg Key: %s\n", buf1);
+          client->fetchResults(buf2);
+          printf("Steg Key: %s\n", buf2);
+          peer.setStegKey(buf2);
           executed = true;
           break;
         }
@@ -124,12 +123,77 @@ int main(int argc, char const *argv[]) {
         printf("Peer %s does not exist in your map!\n", command);
 
     } else if (strcmp(command, "send-image") == 0) {
+      int numberOfViews = 0;
       printf("Target User: ");
       scanf("%s", command);
-      printf("Image file: ");
-      scanf("%s", buf1);
-      printf("Number of view: ");
-      scanf("%s", buf2);
+      bool executed = false;
+      for(PeersMap::iterator it = peers.begin(); it != peers.end(); ++it) {
+        Peer &peer = it->second;
+        if (strcmp(command, peer.getId()) == 0) {
+          printf("Address: %s\n", peer.getPeerAddress());
+          printf("Exists.\n");
+          fflush(stdout);
+          const char *ip = peer.getPeerAddress();
+          uint16_t port = peer.getPortNumber();
+          Client *client = clients.get(command, username, ip, port);
+          (void)client;
+          printf("Image file: ");
+          scanf("%s", buf1);
+          char *imagePath = buf1;
+          if (!File::exists(imagePath)) {
+            printf("Image %s does not exist!\n", imagePath);
+            continue;
+          }
+          printf("Number of views: ");
+          scanf("%s", buf2);
+          numberOfViews = atoi(buf2);
+          char *rsa = (char *) peer.getRSA();
+          char *stegKey = (char *) peer.getStegKey();
+          printf("Sending %s\nViews: %d\nStegkey: %s\nRSA: %s\n", imagePath, numberOfViews, stegKey, rsa);
+
+          char userFilePath[PATH_MAX];
+          char fileName[PATH_MAX];
+          char encryptedFilePath[PATH_MAX];
+          char finalFilePath[PATH_MAX];
+          char fileId[PATH_MAX];
+          char originalHash[64];
+          char coverFile[] = "cover.jpg";
+
+          Crypto::md5HashFile(imagePath, originalHash);
+          memset(userFilePath, 0, PATH_MAX);
+          memset(fileName, 0, PATH_MAX);
+          memset(encryptedFilePath, 0, PATH_MAX);
+          memset(finalFilePath, 0, PATH_MAX);
+          memset(fileId, 0, PATH_MAX);
+          sprintf(userFilePath, "storage/%s/sent", peer.getId());
+          File::joinPaths(encryptedFilePath, userFilePath, originalHash);
+          strcat(fileId, peer.getId());
+          strcat(fileId, "-");
+
+          int rc = Steganography::encryptImage(userFilePath, imagePath, coverFile, originalHash, buf2, stegKey);
+          (void) rc;
+
+          strcat(fileId, originalHash);
+          File::joinPaths(finalFilePath, userFilePath, fileId);
+          File::rename(encryptedFilePath, finalFilePath);
+
+          client->sendFile(finalFilePath, fileId);
+
+          client->fetchResults(buf1);
+
+          FileState operationResult = (FileState) atoi(buf1);
+
+          printf("Opeartion result: %d\n", (int) operationResult);
+
+
+          executed = true;
+          break;
+        }
+
+      }
+      if (!executed)
+        printf("Peer %s does not exist in your map!\n", command);
+
     } else if (strcmp(command, "update-image") == 0) {
       printf("Target User: ");
       scanf("%s", command);
@@ -152,13 +216,13 @@ int main(int argc, char const *argv[]) {
       printf("RSAs: \n");
       for(PeersMap::iterator it = peers.begin(); it != peers.end(); ++it) {
         Peer &peer = it->second;
-        printf("Peer(%s):\nUsername: %s\n, RSA: %s\n", peer.getId(), peer.getUsername(), peer.getRSA());
+        printf("Peer(%s):\nUsername: %s\n RSA: %s\n", peer.getId(), peer.getUsername(), peer.getRSA());
       }
     } else if (strcmp(command, "lsk") == 0) {
       printf("Steganography keys: \n");
       for(PeersMap::iterator it = peers.begin(); it != peers.end(); ++it) {
         Peer &peer = it->second;
-        printf("Peer(%s):\nUsername: %s\n, Steganography key: %s\n", peer.getId(), peer.getUsername(), peer.getStegKey());
+        printf("Peer(%s):\nUsername: %s\n Steganography key: %s\n", peer.getId(), peer.getUsername(), peer.getStegKey());
       }
     } else if (strcmp(command, "stat") == 0) {
       printf("Status: ");

@@ -36,18 +36,20 @@ void SeederJob::run() {
   SeedersMap *clients = static_cast<SeedersMap*>(getSharedData());
 
   lock();
-  printf("Adding user %s\n", _client->getUsername());
-  fflush(stdout);
-  (*clients)[(char *)_client->getClientId()] = _client;
-  printf("Added user %s\n", _client->getUsername());
-  fflush(stdout);
+  char *clientId = new char[strlen(_client->getClientId()) + 1];
+  memset(clientId, 0, strlen(_client->getClientId()) + 1);
+  strcpy(clientId, _client->getClientId());
+  (*clients)[clientId] = _client;
   unlock();
-
-  printf("%s\n", _client->getClientId());
 
   bool clientTerminated = false;
 
   while(!clientTerminated){
+    if(clients->find(clientId) == clients->end()) {
+      lock();
+      (*clients)[clientId] = _client;
+      unlock();
+    }
     Message request;
     while(!clientTerminated) {
       try {
@@ -121,7 +123,6 @@ void SeederJob::run() {
   printf("Client disconneced!\n");
   lock();
   printf("Removing user: %s\n", _client->getUsername());
-  char *clientId = (char *) _client->getClientId();
   clients->erase(clientId);
   printf("Removed %s\n", _client->getUsername());
   unlock();

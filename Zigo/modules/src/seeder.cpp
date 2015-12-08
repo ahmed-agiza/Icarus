@@ -109,9 +109,7 @@ void Seeder::serveRequest(Message  &request) {
 
     SeederJob *job = dynamic_cast<SeederJob *>(_jobsPool.acquire());
     SeederNode *client = _addClient(rsa, clientPort, job);
-    printf("Setting socket..\n");
     client->setSocket(handlerSocket);
-    printf("Set!\n");
     client->setUsername(username);
     client->setServerPort(serverPort);
 
@@ -160,10 +158,11 @@ SeederNode *Seeder::_getClient(char *id) {
 int Seeder::_removeClient(char *id) {
   if (_clients.find(id) == _clients.end())
     return -1;
-
+  printf("Erasing..\n");
   if(_clients[id])
     delete _clients[id];
   _clients.erase(id);
+  printf("Erased!\n");
 
   return 0;
 }

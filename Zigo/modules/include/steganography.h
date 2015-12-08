@@ -2,6 +2,7 @@
 #define SETGANOGRAPHY_H
 
 #include <string.h>
+#include <error.h>
 #include <linux/limits.h>
 #include "file.h"
 

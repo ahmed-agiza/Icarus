@@ -14,7 +14,8 @@ enum Operation {
   RSARequest = 3,
   StegKey = 4,
   OpenFile = 5,
-  SendFiel = 6
+  SendFile = 6,
+  SendEncryptedFile = 7
 };
 
 enum State {
@@ -36,12 +37,14 @@ protected:
   char _publicRSA[2048];
   char _privateRSA[2048];
   char _id[128];
+  char _peerRSA[2048];
 
   bool _executed;
   bool _busy;
 
 
-  char _queryParam[128];
+  char _queryParam[2048];
+  char _extraParam[2048];
   char _results[MAX_READ_SIZE];
   Operation _currentOperation;
   State _resultState;
@@ -71,6 +74,12 @@ public:
   const char *getId() const;
 
   State checkState() const;
+
+  void sendFile(const char *filename, const char *fileId);
+  void sendEncryptedFile(const char *filename, const char *fileId);
+
+  void setExtra(char *extra);
+  void setPeerRSA(char *rsa);
 
 
   ~Client();

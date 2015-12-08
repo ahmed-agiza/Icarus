@@ -265,8 +265,38 @@ int Crypto::md5Hash(char *msg, char *hash) {
   int charCount = 0;
 
   for(int i = 0; i < MD5_DIGEST_LENGTH; i++) {
-    charCount = sprintf(hash, "%s%02x", hash, c[i]);
+    charCount += sprintf(hash, "%s%02x", hash, c[i]);
   }
+
+  return charCount;
+}
+
+int Crypto::md5HashFile(char *filename, char *hash) {
+  unsigned char c[MD5_DIGEST_LENGTH];
+  memset(hash, 0, MD5_DIGEST_LENGTH);
+
+  FILE *inFile = fopen (filename, "rb");
+  MD5_CTX mdContext;
+  int bytes;
+  unsigned char data[1024];
+
+  if (inFile == NULL) {
+    throw FileOpenException();
+  }
+
+  MD5_Init (&mdContext);
+  while ((bytes = fread (data, 1, 1024, inFile)) != 0)
+    MD5_Update (&mdContext, data, bytes);
+
+  MD5_Final (c, &mdContext);
+
+  int charCount = 0;
+
+  for(int i = 0; i < MD5_DIGEST_LENGTH; i++) {
+    charCount += sprintf(hash, "%s%02x", hash, c[i]);
+  }
+
+  fclose (inFile);
 
   return charCount;
 }

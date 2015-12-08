@@ -24,17 +24,149 @@ void Job::setClient(ClientNode *client) {
   _client = client;
 }
 
+void Job::handleRemote(Message &request) {
+  char fileId[PATH_MAX], replyMessage[32];;
+  int mode;
+  if (request.getType() == Open) {
+    char filePath[PATH_MAX];
+
+    if(sscanf(request.getBody(), "%[^;]%*c%d;", fileId, &mode) != 2) {
+      char invalidRequestMessage[LOG_MESSAGE_LENGTH];
+      sprintf(invalidRequestMessage, "Invalid request body\n%s\nin\n%s\n", request.getBody(), request.getBytes());
+      Logger::error(invalidRequestMessage);
+      throw InvalidReplyException();
+    }
+
+    sprintf(filePath, "storage/%s/recv", request.getOwnerId());
+    File::createDirIfNotExists(filePath);
+    sprintf(filePath, "%s/%s", filePath, fileId);
+    if (mode == ReadOnly) {
+      if (!File::exists(filePath)) {
+        sprintf(replyMessage, "-1;%d;", (int) Noent);
+        Message enoentMessage(Reply, replyMessage, _id, fileId);
+        _handlerSocket->sendMessage(enoentMessage);
+        return;
+      }
+    }
+    if (mode == AttemptCreate) {
+      printf("AttemptCreate: %d\n", (int)File::exists(filePath));
+      if (File::exists(filePath)) {
+        sprintf(replyMessage, "-1;%d;", (int) AlreadyExists);
+        Message existsMessage(Reply, replyMessage, _id, fileId);
+        _handlerSocket->sendMessage(existsMessage);
+        return;
+      }
+    } else if (File::exists(filePath)) {
+      if (File::isLocked(filePath)) {
+        sprintf(replyMessage, "-1;%d;", (int) Locked);
+        Message lockedMessage(Reply, replyMessage, _id, fileId);
+        _handlerSocket->sendMessage(lockedMessage);
+        return;
+      }
+    }
+    File *file;
+    if (mode == ReadOnly)
+      file = File::open(filePath, O_RDONLY);
+    else {
+      file = File::open(filePath, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+      file->lock();
+    }
+    int fd = file->getFd();
+    if (fd < 0)
+      throw FileOpenException();
+    _client->addFile(fd, file);
+    sprintf(replyMessage, "%d;%d;", fd, (int) Opened);
+    Message fdReply(Reply, replyMessage, _id, fileId);
+    _handlerSocket->sendMessage(fdReply);
+
+    Message ackBack = _handlerSocket->recvMessage();
+
+    if (ackBack.getType() != Acknowledge) {
+      char invalidReplyMessage[LOG_MESSAGE_LENGTH];
+      sprintf(invalidReplyMessage, "Invalid message type: %s", ackBack.getBytes());
+      Logger::error(invalidReplyMessage);
+      return;
+    }
+    if(!ackBack.isAcknowledgeSuccess()){
+      char misacknowledgmentMessage[LOG_MESSAGE_LENGTH];
+      sprintf(misacknowledgmentMessage, "Failed acknowledgment %s.", ackBack.getBytes());
+      Logger::error(misacknowledgmentMessage);
+      return;
+    }
+    printf("Open succeeded!\n");
+  } else if (request.getType() == Close) {
+    int fd;
+    if(sscanf(request.getBody(), "%d", &fd) != 1) {
+      char invalidRequestMessage[LOG_MESSAGE_LENGTH];
+      sprintf(invalidRequestMessage, "Invalid request: %s", request.getBytes());
+      Logger::error(invalidRequestMessage);
+      return;
+    }
+    File *file = _client->getFile(fd);
+    if(!file) {
+      sprintf(replyMessage, "-1;%d;", (int) Noent);
+      Message enoentMessage(Reply, replyMessage, _id, fileId);
+      _handlerSocket->sendMessage(enoentMessage);
+      return;
+    }
+    printf("Closing %d..\n", fd);
+    fflush(stdout);
+    int closeRc = file->close();
+    char closeRcStr[8];
+    if(closeRc != 0)
+      sprintf(closeRcStr, "%d;%d;", fd, (int)FailedOperation);
+    else
+      sprintf(closeRcStr, "%d;%d;", fd, (int)Closed);
+    Message closeRcMessage(Reply, closeRcStr, _id, fileId);
+    _handlerSocket->sendMessage(closeRcMessage);
+    printf("Close(%s)\n", closeRcStr);
+  } else if (request.getType() == Write) {
+    int fd;
+    char fileWriteBuffer[50000];
+    char decodedWriteBuffer[50000];
+    memset(fileWriteBuffer, 0, 50000);
+    size_t decodeLen = 50000;
+    size_t writeSize;
+    if(sscanf(request.getBody(), "%d\n%zd\n%64999c", &fd, &writeSize, fileWriteBuffer) != 3) {
+      char invalidRequestMessage[LOG_MESSAGE_LENGTH];
+      sprintf(invalidRequestMessage, "Invalid request: %s", request.getBytes());
+      Logger::error(invalidRequestMessage);
+      return;
+    }
+
+    Crypto::base64Decode(fileWriteBuffer, strlen(fileWriteBuffer), (unsigned char *)decodedWriteBuffer, &decodeLen);
+
+    File *file = _client->getFile(fd);
+
+    if(file->isLocked() && !file->isLockOwner()) {
+      Logger::warn("Attempting to write on locked file.");
+      Message writtenByes(Reply, "0", _id, DEFAULT_MESSAGE_ID);
+      return;
+    }
+
+
+    size_t writtenBytes = file->write(decodedWriteBuffer, decodeLen);
+    char writtenStr[32];
+    sprintf(writtenStr, "%zd", writtenBytes);
+    Message writtenByes(Reply, writtenStr, _id, DEFAULT_MESSAGE_ID);
+    _handlerSocket->sendMessage(writtenByes);
+
+  }else {
+    printf("Invalid request!\n");
+  }
+}
+
 
 void Job::run() {
-  UDPSocket *handlerSocket = _client->getSocket();
-  sockaddr_in clientAddr = handlerSocket->getPeerAddress();
+  _handlerSocket = _client->getSocket();
+  sockaddr_in clientAddr = _handlerSocket->getPeerAddress();
   char *clientAddrName = (char *)inet_ntoa(clientAddr.sin_addr);
 
   pthread_t currentId = pthread_self();
   char servingMessage[50];
   sprintf(servingMessage, "Serving client %s from %lu", clientAddrName, currentId);
   Logger::info(servingMessage);
-  //handlerSocket->setRecvTimeout(2, 0);
+  //_handlerSocket->setRecvTimeout(2, 0);
   char reply[2048];
   char ack[32];
   bool terminated = false;
@@ -42,201 +174,98 @@ void Job::run() {
   while(1){
     Message request;
     printf("Waiting..\n");
-    while(1) {
-      try {
-        if(terminated || _terminationRequest()) {
-          break;
+    try {
+      while(1) {
+        try {
+          if(terminated || _terminationRequest()) {
+            break;
+          }
+          request = _handlerSocket->recvMessageTimeout(2, 0);
+        } catch (ReceiveTimeoutException &timeout) {
+          continue;
         }
-        request = handlerSocket->recvMessageTimeout(2, 0);
-      } catch (ReceiveTimeoutException &timeout) {
+        break;
+      }
+
+      if(terminated || _terminationRequest()) {
+        char serverTerminationMessage[LOG_MESSAGE_LENGTH];
+        sprintf(serverTerminationMessage, "Closing %lu because of server termination..", currentId);
+        Logger::info(serverTerminationMessage);
+        break;
+      }
+
+      char newConnectionMessage[LOG_MESSAGE_LENGTH];
+      sprintf(newConnectionMessage, "Request from %s(%d)", _handlerSocket->getPeerName(), _handlerSocket->getPortNumber());
+      Logger::info(newConnectionMessage);
+      fflush(stdout);
+
+      if (request.isFileOperation()){
+        handleRemote(request);
+        continue;
+      } else if(request.getType() != Request) {
+        char invalidRequestMessage[LOG_MESSAGE_LENGTH];
+        sprintf(invalidRequestMessage, "Invalid request type: %s", request.getBytes());
+        Logger::error(invalidRequestMessage);
         continue;
       }
-      break;
-    }
 
-    if(terminated || _terminationRequest()) {
-      char serverTerminationMessage[LOG_MESSAGE_LENGTH];
-      sprintf(serverTerminationMessage, "Closing %lu because of server termination..", currentId);
-      Logger::info(serverTerminationMessage);
-      break;
-    }
-
-    char newConnectionMessage[LOG_MESSAGE_LENGTH];
-    sprintf(newConnectionMessage, "Request from %s(%d): %s", handlerSocket->getPeerName(), handlerSocket->getPortNumber(), request.getBody());
-    Logger::info(newConnectionMessage);
-    fflush(stdout);
-
-    if (request.isFileOperation()){
-      printf("Type: %d\n", request.getType());
-      if (request.getType() == Open) {
-        File *file = File::open(request.getBody(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
-        int fd = file->getFd();
-        if (fd < 0)
-          throw FileOpenException();
-        _client->addFile(fd, file);
-        char replyMessage[32];
-        sprintf(replyMessage, "%d", fd);
-        Message fdReply(Reply, replyMessage, _id, DEFAULT_MESSAGE_ID);
-        handlerSocket->sendMessage(fdReply);
-
-        Message ackBack = handlerSocket->recvMessage();
-
-        if (ackBack.getType() != Acknowledge) {
-          char invalidReplyMessage[LOG_MESSAGE_LENGTH];
-          sprintf(invalidReplyMessage, "Invalid message type: %s", ackBack.getBytes());
-          Logger::error(invalidReplyMessage);
-          continue;
-        }
-        if(!ackBack.isAcknowledgeSuccess()){
-          char misacknowledgmentMessage[LOG_MESSAGE_LENGTH];
-          sprintf(misacknowledgmentMessage, "Failed acknowledgment %s.", ackBack.getBytes());
-          Logger::error(misacknowledgmentMessage);
-          continue;
-        }
-        printf("Open succeeded!\n");
-      } else if (request.getType() == Read) {
-        int fd;
-        size_t readSize;
-        if(sscanf(request.getBody(), "%d\n%zd", &fd, &readSize) != 2 || readSize > 55000) {
-          char invalidRequestMessage[LOG_MESSAGE_LENGTH];
-          sprintf(invalidRequestMessage, "Invalid request: %s", request.getBytes());
-          Logger::error(invalidRequestMessage);
-          continue;
-        }
-        File *file = _client->getFile(fd);
-        printf("Reading(%d): %zd\n", fd, readSize);
-        char fileReadBuffer[50000];
-        memset(fileReadBuffer, 0, 50000);
-        file->read(fileReadBuffer, readSize);
-        if (file->isEOF()) {
-          printf("EOF!\n");
-          Message eofMessage(Eof, "0", _id, DEFAULT_MESSAGE_ID);
-          handlerSocket->sendMessage(eofMessage);
-        } else {
-          printf("Read: %s\n", fileReadBuffer);
-          Message readMessage(Reply, fileReadBuffer, _id, DEFAULT_MESSAGE_ID);
-          handlerSocket->sendMessage(readMessage);
-        }
-
-        Message readCharsMessage = handlerSocket->recvMessage();
-        size_t readChars = atol(readCharsMessage.getBody());
-        printf("Chars read: %zd\n", readChars);
-        file->setOffset(readChars);
-      } else if (request.getType() == Write) {
-        int fd;
-        char fileWriteBuffer[50000];
-        memset(fileWriteBuffer, 0, 50000);
-        size_t writeSize;
-        if(sscanf(request.getBody(), "%d\n%zd\n%64999c", &fd, &writeSize, fileWriteBuffer) != 3) {
-          char invalidRequestMessage[LOG_MESSAGE_LENGTH];
-          sprintf(invalidRequestMessage, "Invalid request: %s", request.getBytes());
-          Logger::error(invalidRequestMessage);
-          continue;
-        }
-        File *file = _client->getFile(fd);
-        printf("Writing(%d): %zd\n", fd, writeSize);
-        size_t writtenBytes = file->write(fileWriteBuffer, writeSize);
-        char writtenStr[32];
-        sprintf(writtenStr, "%zd", writtenBytes);
-        Message writtenByes(Reply, writtenStr, _id, DEFAULT_MESSAGE_ID);
-        handlerSocket->sendMessage(writtenByes);
-        printf("Written!\n");
-      } else if (request.getType() == Lseek) {
-        int fd;
-        off_t offset;
-        if(sscanf(request.getBody(), "%d\n%zd", &fd, &offset) != 2) {
-          char invalidRequestMessage[LOG_MESSAGE_LENGTH];
-          sprintf(invalidRequestMessage, "Invalid request: %s", request.getBytes());
-          Logger::error(invalidRequestMessage);
-          continue;
-        }
-        File *file = _client->getFile(fd);
-        printf("lseek %d -> %zd..\n", fd, offset);
-        fflush(stdout);
-        file->setOffset(offset);
-        char offsetStr[32];
-        sprintf(offsetStr, "%zd", offset);
-        Message ackMessage(Reply, offsetStr, _id, DEFAULT_MESSAGE_ID);
-        handlerSocket->sendMessage(ackMessage);
-      } else if (request.getType() == Close) {
-        int fd;
-        if(sscanf(request.getBody(), "%d", &fd) != 1) {
-          char invalidRequestMessage[LOG_MESSAGE_LENGTH];
-          sprintf(invalidRequestMessage, "Invalid request: %s", request.getBytes());
-          Logger::error(invalidRequestMessage);
-          continue;
-        }
-        File *file = _client->getFile(fd);
-        printf("Closing %d..\n", fd);
-        fflush(stdout);
-        int closeRc = file->close();
-        char closeRcStr[8];
-        sprintf(closeRcStr, "%d", closeRc);
-        Message closeRcMessage(Reply, closeRcStr, _id, DEFAULT_MESSAGE_ID);
-        handlerSocket->sendMessage(closeRcMessage);
-        printf("Close(%s)\n", closeRcStr);
+      if(request.isTerminationMessage()) {
+        _handlerSocket->lock();
+        terminated = true;
+        break;
       }
-      continue;
-    } else if(request.getType() != Request) {
-      char invalidRequestMessage[LOG_MESSAGE_LENGTH];
-      sprintf(invalidRequestMessage, "Invalid request type: %s", request.getBytes());
-      Logger::error(invalidRequestMessage);
-      continue;
+
+      if(terminated) {
+        break;
+      }
+
+      int ackLen = sprintf(ack, "%zd", request.getMessagSize());
+      (void)ackLen;
+
+      Message ackReply(Acknowledge, ack, _id, DEFAULT_MESSAGE_ID);
+      ssize_t sentAck = _handlerSocket->sendMessage(ackReply);
+      (void)sentAck;
+
+      Message ackBack = _handlerSocket->recvMessage();
+
+      if (ackBack.getType() != Acknowledge) {
+        char invalidReplyMessage[LOG_MESSAGE_LENGTH];
+        sprintf(invalidReplyMessage, "Invalid message type: %s", ackBack.getBytes());
+        Logger::error(invalidReplyMessage);
+        continue;
+      }
+      if(!ackBack.isAcknowledgeSuccess()){
+        char misacknowledgmentMessage[LOG_MESSAGE_LENGTH];
+        sprintf(misacknowledgmentMessage, "Failed acknowledgment %s.", ackBack.getBytes());
+        Logger::error(misacknowledgmentMessage);
+        continue;
+      }
+
+      int replySize;
+
+      if (strcmp(request.getBody(), "rsa") == 0) {
+        replySize = sprintf(reply, "%s", getServerRSA());
+      } else if (strcmp(request.getBody(), "steg") == 0) {
+        replySize = sprintf(reply, "%s", getStegKey());
+      } else {
+        replySize = sprintf(reply, "You sent: %s", request.getBody());
+      }
+      (void) replySize;
+
+      Message replyMessage(Reply, reply, _id, DEFAULT_MESSAGE_ID);
+      _handlerSocket->sendMessage(replyMessage);
+    } catch (NetworkException &e) {
+      Logger::error(e.what());
     }
 
-    if(request.isTerminationMessage()) {
-      handlerSocket->lock();
-      terminated = true;
-      break;
-    }
-
-    if(terminated) {
-      break;
-    }
-
-    int ackLen = sprintf(ack, "%zd", request.getMessagSize());
-    (void)ackLen;
-
-    Message ackReply(Acknowledge, ack, _id, DEFAULT_MESSAGE_ID);
-    ssize_t sentAck = handlerSocket->sendMessage(ackReply);
-    (void)sentAck;
-
-    Message ackBack = handlerSocket->recvMessage();
-
-    if (ackBack.getType() != Acknowledge) {
-      char invalidReplyMessage[LOG_MESSAGE_LENGTH];
-      sprintf(invalidReplyMessage, "Invalid message type: %s", ackBack.getBytes());
-      Logger::error(invalidReplyMessage);
-      continue;
-    }
-    if(!ackBack.isAcknowledgeSuccess()){
-      char misacknowledgmentMessage[LOG_MESSAGE_LENGTH];
-      sprintf(misacknowledgmentMessage, "Failed acknowledgment %s.", ackBack.getBytes());
-      Logger::error(misacknowledgmentMessage);
-      continue;
-    }
-
-    int replySize;
-
-    if (strcmp(request.getBody(), "rsa") == 0) {
-      replySize = sprintf(reply, "%s", getServerRSA());
-    } else if (strcmp(request.getBody(), "steg") == 0) {
-      replySize = sprintf(reply, "%s", getStegKey());
-    } else {
-      replySize = sprintf(reply, "You sent: %s", request.getBody());
-    }
-    (void) replySize;
-
-    Message replyMessage(Reply, reply, _id, DEFAULT_MESSAGE_ID);
-    handlerSocket->sendMessage(replyMessage);
   }
 
 
   char servingDoneMessage[LOG_MESSAGE_LENGTH];
-  sprintf(servingDoneMessage, "Done serving %s(%d)", handlerSocket->getPeerName(), handlerSocket->getPortNumber());
+  sprintf(servingDoneMessage, "Done serving %s(%d)", _handlerSocket->getPeerName(), _handlerSocket->getPortNumber());
   Logger::info(servingDoneMessage);
 
-  handlerSocket->unlock();
+  _handlerSocket->unlock();
 }
 
 bool Job::reset() {

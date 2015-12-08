@@ -147,4 +147,4 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	$(CC) -c $< -o $@ $(LFLAGS)
 
 clean:
-	rm -f $(BINARIES) *.o $(BUILD_DIR)/* $(OBJ_DIR)/*.o $(BUILD_DIR)/core $(OBJ_DIR)/core
+	rm -f $(BINARIES) *.o $(OBJ_DIR)/*.o $(BUILD_DIR)/core $(OBJ_DIR)/core

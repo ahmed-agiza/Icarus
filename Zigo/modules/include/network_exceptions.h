@@ -32,6 +32,13 @@ public:
 	}
 };
 
+class FileLockedException : public NetworkException {
+public:
+	virtual const char* what() const throw() {
+		return "The selected file is currently locked.";
+	}
+};
+
 class InvalidOperationContext : public NetworkException {
 public:
 	virtual const char* what() const throw() {

@@ -47,7 +47,7 @@ Message::Message(MessageType type, const char *body, char *ownerId, char *messag
     strcpy(_messageId, messageId);
     sprintf(_fullId, "%s-%s", _ownerId, _messageId);
     _timestamp = (long) time(NULL);
-    if (encoding == NoEncoding)
+    if (encoding == NoEncoding || encoding == RSAEncryption)
       setBody(body);
     else if (encoding == Base64)
       Crypto::base64Encode(body, encodeLength, _body, MAX_READ_SIZE);
@@ -232,6 +232,13 @@ void Message::setEncoding(Encoding encoding) {
 }
 Encoding Message::getEncoding() const {
   return _encoding;
+}
+
+const char *Message::getOwnerId() const {
+  return _ownerId;
+}
+const char *Message::getMessageId() const {
+  return _messageId;
 }
 
 Message::~Message() {

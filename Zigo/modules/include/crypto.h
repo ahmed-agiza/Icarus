@@ -9,6 +9,7 @@
 #include <openssl/err.h>
 #include <openssl/bn.h>
 #include <openssl/bio.h>
+#include "network_exceptions.h"
 
 //should go in settings file
 #define RSA_KEY_LENGTH  2048
@@ -37,6 +38,7 @@ public:
   static void generateRandomString(char *buf, int length);
   static size_t base64Len(const char* b64input);
   static int md5Hash(char *msg, char *hash);
+  static int md5HashFile(char *filename, char *hash);
   static RSA* getPublicKey(const char* pubKeyFile);
   static RSA* getPrivateKey(const char* priKeyFile);
 };

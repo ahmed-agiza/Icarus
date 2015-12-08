@@ -39,6 +39,7 @@ void HeartBeat::run() {
     lock();
     currentOperation = _currentOperation;
     unlock();
+
     if (currentOperation == Pinging) {
       success = 0;
       retry = -1;

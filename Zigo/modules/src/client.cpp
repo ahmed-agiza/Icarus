@@ -35,8 +35,6 @@ Client::Client(const char *username, const char * hostname, uint16_t port, uint1
   setMutex(&_operationLock);
   setCV(&_fetchingCv);
 
-
-
 }
 
 int Client::_establishConnection() {
@@ -116,7 +114,6 @@ void Client::run() {
 
 //start sending messages from client.
 int Client::execute() {
-  printf("execute()\n");
   _resultState = Fetching;
   ssize_t sentAckBytes;
   int success = 0;
@@ -124,78 +121,132 @@ int Client::execute() {
   char ackBack[2];
   bool terminated = false;
   (void) terminated;
+  Operation activeOperation;
 
   lock();
-  Message requestMessage = Message(Request, _queryParam, _id, DEFAULT_MESSAGE_ID); //wrap the text in message form
+  activeOperation = _currentOperation;
+  Message requestMessage = Message(Request, _queryParam, _id, DEFAULT_MESSAGE_ID);
   unlock();
   uint32_t maxRetry = Settings::getInstance().getRetryTimes();
   uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
 
-  while(!success && retry < (int)maxRetry) { //try to re-send packet if failed within MAX_RETRY
+  if(activeOperation == RSARequest || activeOperation == StegKey) {
+      while(!success && retry < (int)maxRetry) { //try to re-send packet if failed within MAX_RETRY
 
-    ssize_t sentBytes = _sendMessage(requestMessage); //send message to server
+        ssize_t sentBytes = _sendMessage(requestMessage); //send message to server
 
-    if(sentBytes < 0)
-      return -1;
+        if(sentBytes < 0)
+          return -1;
 
-    if(_terminationRequest()){
-      break;
-    }
+        if(_terminationRequest()){
+          break;
+        }
 
-    Message ackReply = _getReplyTimeout(clientReplyTo, 0);
+        Message ackReply = _getReplyTimeout(clientReplyTo, 0);
 
-    if (ackReply.getType() != Acknowledge) {
-      char invalidReplyMessage[LOG_MESSAGE_LENGTH];
-      sprintf(invalidReplyMessage, "Invalid reply: %s", ackReply.getBytes());
-      Logger::error(invalidReplyMessage);
-      throw InvalidReplyException();
-    }
+        if (ackReply.getType() != Acknowledge) {
+          char invalidReplyMessage[LOG_MESSAGE_LENGTH];
+          sprintf(invalidReplyMessage, "Invalid reply: %s", ackReply.getBytes());
+          Logger::error(invalidReplyMessage);
+          throw InvalidReplyException();
+        }
 
-    uint32_t ackNumber = (uint32_t) strtoull(ackReply.getBody(), NULL, 0);
+        uint32_t ackNumber = (uint32_t) strtoull(ackReply.getBody(), NULL, 0);
 
-    success = (ackNumber == sentBytes);
+        success = (ackNumber == sentBytes);
 
 
-    sprintf(ackBack, "%d", (int) success);
-    Message ackBackReply(Acknowledge, ackBack, _id, DEFAULT_MESSAGE_ID);
+        sprintf(ackBack, "%d", (int) success);
+        Message ackBackReply(Acknowledge, ackBack, _id, DEFAULT_MESSAGE_ID);
 
-    sentAckBytes = _sendMessage(ackBackReply);
-    (void) sentAckBytes;
+        sentAckBytes = _sendMessage(ackBackReply);
+        (void) sentAckBytes;
 
-    if(!success){ //packet loss
-      char misacknowledgmentMessage[LOG_MESSAGE_LENGTH];
-      sprintf(misacknowledgmentMessage, "Mismatch between acknowledgment and sent bytes (%d==%d)?.", (int)sentBytes, (int) ackNumber);
-      Logger::error(misacknowledgmentMessage);
-      retry++;
-      if(retry < (int)maxRetry){
-        char retryMessage[LOG_MESSAGE_LENGTH];
-        sprintf(retryMessage, "Retrying to send the message(%d)..", retry);
-        Logger::warn(retryMessage);
+        if(!success){ //packet loss
+          char misacknowledgmentMessage[LOG_MESSAGE_LENGTH];
+          sprintf(misacknowledgmentMessage, "Mismatch between acknowledgment and sent bytes (%d==%d)?.", (int)sentBytes, (int) ackNumber);
+          Logger::error(misacknowledgmentMessage);
+          retry++;
+          if(retry < (int)maxRetry){
+            char retryMessage[LOG_MESSAGE_LENGTH];
+            sprintf(retryMessage, "Retrying to send the message(%d)..", retry);
+            Logger::warn(retryMessage);
+          }
+        }
       }
+
+
+      if(!success){
+        Logger::error("Failed to deliver your message.");
+        return -1;
+      }
+
+
+
+
+      Message replyMessage = _getReplyTimeout(clientReplyTo, 0);
+      if (replyMessage.getType() != Reply) {
+        char invalidReplyMessage[LOG_MESSAGE_LENGTH];
+        sprintf(invalidReplyMessage, "Invalid reply: %s", replyMessage.getBytes());
+        Logger::error(invalidReplyMessage);
+        throw InvalidReplyException();
+      }
+      const char *reply = replyMessage.getBody();
+
+      strcpy(_results, reply);
+
+      _resultState = Ready;
+      _currentOperation = Idle;
+      resume();
+  } else if (activeOperation == SendFile) {
+    char readBuff[1024];
+    memset(readBuff, 0, 1024);
+    FileState fileState;
+    File *localFile = File::open(_queryParam, O_RDONLY);
+    if (localFile->getFd() < 0)
+      throw FileOpenException();
+    File *remoteFile = File::ropen(_clientSocket, _extraParam, _id, _extraParam, AttemptCreate, &fileState);
+
+    memset(_results, 0, MAX_READ_SIZE);
+    sprintf(_results, "%d", (int)fileState);
+    if(fileState == Locked) {
+      printf("Locked!\n");
+      throw FileLockedException();
+    } else if (fileState != Opened) {
+      printf("Remote!\n");
+      throw FileOpenException();
     }
+
+    off_t localOffset, remoteOffset;
+    while(!localFile->isEOF()) {
+      ssize_t readBytes = localFile->read(readBuff, 1024);
+      (void) readBytes;
+      remoteFile->write(readBuff, readBytes);
+      localOffset = localFile->getOffset();
+      remoteOffset = remoteFile->getOffset();
+      printf("Writing %f%%..\n", 100.0 * (float)remoteOffset/(float)localFile->getFileSize());
+      if (!localFile->isEOF())
+        if (localOffset != remoteOffset)
+          localFile->setOffset(remoteFile->getOffset());
+    }
+
+    printf("File state: %d", (int)Opened);
+
+    localFile->close();
+    remoteFile->close();
+
+    _resultState = Ready;
+    _currentOperation = Idle;
+
+    resume();
+  } else if (activeOperation == SendEncryptedFile) {
+
+  } else {
+    fprintf(stderr, "Invalid operation %d\n", (int) activeOperation);
   }
 
 
-  if(!success){
-    Logger::error("Failed to deliver your message.");
-    return -1;
-  }
 
-
-
-
-  Message replyMessage = _getReplyTimeout(clientReplyTo, 0);
-  if (replyMessage.getType() != Reply) {
-    char invalidReplyMessage[LOG_MESSAGE_LENGTH];
-    sprintf(invalidReplyMessage, "Invalid reply: %s", replyMessage.getBytes());
-    Logger::error(invalidReplyMessage);
-    throw InvalidReplyException();
-  }
-  const char *reply = replyMessage.getBody();
-
-  strcpy(_results, reply);
-  _resultState = Ready;
-  resume();
   return 0;
   /*char tempBuff[2048]; //max char from user input
   char ackBack[2];
@@ -367,17 +418,51 @@ int Client::fetchResults(char *buf) {
   return 0;
 }
 
+void Client::sendFile(const char *filename, const char *fileId) {
+  lock();
+  setCommand((char *) filename);
+  setExtra((char *) fileId);
+  _currentOperation = SendFile;
+  unlock();
+  start();
+;}
+
+void Client::sendEncryptedFile(const char *filename, const char *fileId) {
+  lock();
+  setCommand((char* ) filename);
+  setExtra((char *) fileId);
+  _currentOperation = SendEncryptedFile;
+  unlock();
+  start();
+}
+
+void Client::setPeerRSA(char *rsa) {
+  memset(_peerRSA, 0, 2048);
+  strcpy(_peerRSA, rsa);
+}
+
+
 void Client::setCommand(char *command) {
   strcpy(_queryParam, command);
 }
 
+void Client::setExtra(char *extra) {
+  strcpy(_extraParam, extra);
+}
+
 void Client::queryRSA() {
+  lock();
+  _currentOperation = RSARequest;
   setCommand("rsa");
+  unlock();
   start();
 }
 
 void Client::queryStegKey() {
+  lock();
+  _currentOperation = StegKey;
   setCommand("steg");
+  unlock();
   start();
 }
 

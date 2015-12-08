@@ -13,10 +13,13 @@ using std::map;
 #define STRING_COMPARE_OPERATOR
 struct StringCompare {
    bool operator()(char const *a, char const *b) {
-      return (strcmp(a, b) != 0);
+      //printf("%s(%d)=%s(%d)? %d\n", a, (int) strlen(a), b, (int) strlen(b), strcmp(a, b));
+      return (strcmp(a, b) < 0);
    }
 };
 #endif
+
+
 
 typedef map<char *, SeederNode *, StringCompare> SeedersMap;
 

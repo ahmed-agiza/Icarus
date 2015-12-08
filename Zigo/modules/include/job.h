@@ -10,6 +10,7 @@ class Job : public Thread {
   char _id[128];
   char *_serverRSA;
   char *_serverStegKey;
+  UDPSocket *_handlerSocket;
 public:
   Job();
   Job(const char *id);
@@ -30,6 +31,8 @@ public:
   const char *getStegKey() const;
 
   void setId(char *id);
+
+  void handleRemote(Message &request);
 
 
   ~Job();

@@ -41,7 +41,8 @@ enum MessageType {
 
 enum Encoding {
   NoEncoding = 0,
-  Base64 = 1
+  Base64 = 1,
+  RSAEncryption = 2
 };
 
 class Message {
