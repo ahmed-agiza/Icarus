@@ -2,7 +2,7 @@
 
 int Logger::info(char const *message) {
   if (Settings::getInstance().getLogLevel() <= Verbose) {
-    return _logMessage(LOG_INFO_PATH, "Infromation", message, stdout);
+    return _logMessage(LOG_INFO_PATH, "Information", message, stdout);
   }
   return INVALID_LOG_LEVEL;
 }

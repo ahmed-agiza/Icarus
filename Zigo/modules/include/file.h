@@ -69,7 +69,7 @@ public:
   const char *getFilePath() const;
   long getFileSize() const;
   ssize_t read(void *buf, size_t count, char *messageId = DEFAULT_MESSAGE_ID);
-  ssize_t write(const void *buf, size_t count, char *messageId = DEFAULT_MESSAGE_ID);
+  ssize_t write(const void *buf, size_t count, char *messageId = DEFAULT_MESSAGE_ID, bool rsaEncrypted = false);
   void setOffset(off_t offset, char *messageId = DEFAULT_MESSAGE_ID);
   void setUserId(const char *userId);
   off_t getOffset() const;

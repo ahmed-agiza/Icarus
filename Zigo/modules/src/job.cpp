@@ -24,7 +24,7 @@ void Job::setClient(ClientNode *client) {
   _client = client;
 }
 
-void Job::handleRemote(Message &request) {
+void Job::handleRemoteFile(Message &request) {
   char fileId[PATH_MAX], replyMessage[32];;
   int mode;
   if (request.getType() == Open) {
@@ -144,8 +144,14 @@ void Job::handleRemote(Message &request) {
       return;
     }
 
+    size_t writtenBytes;
 
-    size_t writtenBytes = file->write(decodedWriteBuffer, decodeLen);
+    if(request.getEncoding() == RSAEncryption) {
+      char decryptedWriteBuffer[50000];
+      Crypto::decrypt((char *) getServerRSA(), decryptedWriteBuffer, decodedWriteBuffer);
+      writtenBytes = file->write(decodedWriteBuffer, writeSize);
+    } else
+       writtenBytes = file->write(decodedWriteBuffer, decodeLen);
     char writtenStr[32];
     sprintf(writtenStr, "%zd", writtenBytes);
     Message writtenByes(Reply, writtenStr, _id, DEFAULT_MESSAGE_ID);
@@ -200,7 +206,7 @@ void Job::run() {
       fflush(stdout);
 
       if (request.isFileOperation()){
-        handleRemote(request);
+        handleRemoteFile(request);
         continue;
       } else if(request.getType() != Request) {
         char invalidRequestMessage[LOG_MESSAGE_LENGTH];

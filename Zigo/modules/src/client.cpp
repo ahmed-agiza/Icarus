@@ -220,7 +220,6 @@ int Client::execute() {
     off_t localOffset, remoteOffset;
     while(!localFile->isEOF()) {
       ssize_t readBytes = localFile->read(readBuff, 1024);
-      (void) readBytes;
       remoteFile->write(readBuff, readBytes);
       localOffset = localFile->getOffset();
       remoteOffset = remoteFile->getOffset();
@@ -240,7 +239,48 @@ int Client::execute() {
 
     resume();
   } else if (activeOperation == SendEncryptedFile) {
+    char readBuff[200], encryptedBuff[256];
+    memset(readBuff, 0, 200);
+    memset(encryptedBuff, 0, 256);
+    FileState fileState;
+    File *localFile = File::open(_queryParam, O_RDONLY);
+    if (localFile->getFd() < 0)
+      throw FileOpenException();
+    File *remoteFile = File::ropen(_clientSocket, _extraParam, _id, _extraParam, AttemptCreate, &fileState);
 
+    memset(_results, 0, MAX_READ_SIZE);
+    sprintf(_results, "%d", (int)fileState);
+    if(fileState == Locked) {
+      printf("Locked!\n");
+      throw FileLockedException();
+    } else if (fileState != Opened) {
+      printf("Remote!\n");
+      throw FileOpenException();
+    }
+
+    off_t localOffset, remoteOffset;
+    while(!localFile->isEOF()) {
+      ssize_t readBytes = localFile->read(readBuff, 200);
+      (void)readBytes;
+      int encryptionLength = Crypto::encrypt(_peerRSA, readBuff, encryptedBuff);
+      remoteFile->write(encryptedBuff, encryptionLength, DEFAULT_MESSAGE_ID, true);
+      localOffset = localFile->getOffset();
+      remoteOffset = remoteFile->getOffset();
+      printf("Writing %f%%..\n", 100.0 * (float)remoteOffset/(float)localFile->getFileSize());
+      if (!localFile->isEOF())
+        if (localOffset != remoteOffset)
+          localFile->setOffset(remoteFile->getOffset());
+    }
+
+    printf("File state: %d\ns", (int)Opened);
+
+    localFile->close();
+    remoteFile->close();
+
+    _resultState = Ready;
+    _currentOperation = Idle;
+
+    resume();
   } else {
     fprintf(stderr, "Invalid operation %d\n", (int) activeOperation);
   }

@@ -65,6 +65,10 @@ public:
 
   void serveRequest(Message &request);
 
+  const char *getStegKey();
+  const char *getPublicRSA();
+  const char *getPrivateRSA();
+
   ~Server();
 
 

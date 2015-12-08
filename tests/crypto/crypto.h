@@ -23,6 +23,10 @@ public:
   static int decrypt(RSA* rsaPrivateKey, const char* msg, char* decrypt);
   static int encrypt(char* rsaPublicKey, const char* msg, char* encrypt);
   static int decrypt(char* rsaPrivateKey, const char* msg, char* decrypt);
+  static int sign(RSA* rsaPrivateKey, const char* msg, char* encrypt);
+  static int unsign(RSA* rsaPublicKey, const char* msg, char* decrypt);
+  static int sign(char* rsaPrivateKey, const char* msg, char* encrypt);
+  static int unsign(char* rsaPublicKey, const char* msg, char* decrypt);
   static int md5Hash(char *msg, char *hash);
   static RSA* getPublicKey(const char* pubKeyFile);
   static RSA* getPrivateKey(const char* priKeyFile);

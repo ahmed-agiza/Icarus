@@ -76,7 +76,6 @@ File *File::ropen(UDPSocket *socket, char *fileId, const char *userId,
     file->_isLocal = false;
     file->_isEOF = false;
   } else {
-    printf("Failed! %d\n", (int) stateReply);
     file->_isOpen = false;
     file->_isLocal = false;
     file->_isEOF = false;
@@ -262,13 +261,11 @@ ssize_t File::read(void *buf, size_t count, char *messageId) {
 }
 
 
-ssize_t File::write(const void *buf, size_t count, char *messageId) {
+ssize_t File::write(const void *buf, size_t count, char *messageId, bool rsaEncrypted) {
   if (isLocal()) {
     lseek(_fd, SEEK_SET, _offset);
-    printf("Writing %d\n", (int) count);
     ssize_t writtenByes = ::write(_fd, buf, count);
     _offset += writtenByes;
-    printf("New offset: %d\n", (int)_offset);
     return writtenByes;
   } else {
     char params[5860];
@@ -279,7 +276,10 @@ ssize_t File::write(const void *buf, size_t count, char *messageId) {
       sprintf(params, "%d\n%zd\n%s", _fd, count, (char *)encodedBuffer);
     else
       sprintf(params, "%d\n0\n0", _fd);
-    Message writeMessage(Write, params, _userId, messageId);
+    Message writeMessage;
+    writeMessage = Message(Write, params, _userId, messageId);
+    if (rsaEncrypted)
+      writeMessage.setEncoding(RSAEncryption);
     ssize_t sentBytes = _socket->sendMessage(writeMessage);
     (void) sentBytes;
     uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
@@ -322,8 +322,6 @@ void File::setOffset(off_t offset, char *messageId) {
     Message seekMessage(Lseek, seekOff, _userId, messageId);
     ssize_t sentBytes = _socket->sendMessage(seekMessage);
     (void) sentBytes;
-    printf("Offset: %ld\nSent: %s\n", (long) offset, seekOff);
-
     uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
 
     Message replyMessage = _socket->recvMessageTimeout(clientReplyTo, 0);

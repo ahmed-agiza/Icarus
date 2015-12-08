@@ -73,6 +73,17 @@ void Server::listen() {
   Logger::info("Server terminated!");
 }
 
+const char *Server::getStegKey() {
+  return _stegKey;
+}
+
+const char *Server::getPublicRSA() {
+  return _publicRSA;
+}
+const char *Server::getPrivateRSA() {
+  return _privateRSA;
+}
+
 void Server::serveRequest(Message  &request) {
   char portReply[32], username[128], rsa[2048], verificationToken[65], encryptedToken[256], serverPortStr[64];
   uint16_t serverPort;

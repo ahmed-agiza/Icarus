@@ -33,6 +33,10 @@ public:
   static int decrypt(RSA* rsaPrivateKey, const char* msg, char* decrypt);
   static int encrypt(char* rsaPublicKey, const char* msg, char* encrypt);
   static int decrypt(char* rsaPrivateKey, const char* msg, char* decrypt);
+  static int sign(RSA* rsaPrivateKey, const char* msg, char* encrypt);
+  static int unsign(RSA* rsaPublicKey, const char* msg, char* decrypt);
+  static int sign(char* rsaPrivateKey, const char* msg, char* encrypt);
+  static int unsign(char* rsaPublicKey, const char* msg, char* decrypt);
   static int base64Encode(const void* msg, size_t msgLength, char* encoded, size_t encodedLength);
   static int base64Decode(char *msg, size_t messageLength, unsigned char *decoded, size_t *decodedLength = 0);
   static void generateRandomString(char *buf, int length);

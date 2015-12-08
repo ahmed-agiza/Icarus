@@ -32,7 +32,7 @@ public:
 
   void setId(char *id);
 
-  void handleRemote(Message &request);
+  void handleRemoteFile(Message &request);
 
 
   ~Job();
