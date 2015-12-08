@@ -69,7 +69,7 @@ int main(int argc, char const *argv[]) {
       printf("Re-connecting to seeding server..\n");
       printf("Heartbeat start(%d).\n", heartBeat->start());
     } else if (strcmp(command, "query") == 0) {
-      printf("Query type?\n1-All\n2-Username\n3-ID\n");
+      printf("Query type?\n1-All\n2-Username\n3-ID\n4-Recent");
       scanf("%s", command);
       if (strcmp(command, "2") == 0) {
         printf("Username: ");
@@ -79,7 +79,9 @@ int main(int argc, char const *argv[]) {
         printf("ID: ");
         scanf("%s", buf1);
         heartBeat->queryId(buf1);
-      } else {
+      } else if(strcmp(command, "4") == 0) {
+        heartBeat->queryRecent();
+      }else {
         heartBeat->queryOnline();
       }
 

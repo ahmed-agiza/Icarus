@@ -10,7 +10,7 @@ using std::map;
 #define STRING_COMPARE_OPERATOR
 struct StringCompare {
    bool operator()(char const *a, char const *b) {
-    return (strcmp(a, b) < 0);
+      return (strcmp(a, b) < 0);
    }
 };
 #endif

@@ -113,9 +113,12 @@ void Seeder::serveRequest(Message  &request) {
     client->setUsername(username);
     client->setServerPort(serverPort);
 
+    _shared.first = (void *)&_clients;
+    _shared.second = (void *)&_recentClients;
+
     job->setClient(client);
     job->setId(SEEDER_ID);
-    job->setSharedData((SeedersMap *)&_clients);
+    job->setSharedData((void *)&_shared); // ana 3'ayrtt hna.
     job->addDoneCallback(_threadDoneWrapper, this);
 
     if(job->start()) {

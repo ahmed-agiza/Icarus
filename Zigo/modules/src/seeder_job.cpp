@@ -33,13 +33,18 @@ void SeederJob::run() {
   sprintf(servingMessage, "Serving client %s from %lu", clientAddrName, currentId);
   Logger::info(servingMessage);
 
-  SeedersMap *clients = static_cast<SeedersMap*>(getSharedData());
+  _shared = static_cast<SharedPair*>(getSharedData());
+  SeedersMap *clients = static_cast<SeedersMap*>(_shared->first);
+  RecentClients *recentClients = static_cast<RecentClients*>(_shared->second);
 
   lock();
   char *clientId = new char[strlen(_client->getClientId()) + 1];
   memset(clientId, 0, strlen(_client->getClientId()) + 1);
   strcpy(clientId, _client->getClientId());
   (*clients)[clientId] = _client;
+  recentClients->push_back(_client);
+  if(recentClients->size() > RECENT_PEERS)
+    recentClients->erase(recentClients->begin());
   unlock();
 
   bool clientTerminated = false;
@@ -81,8 +86,10 @@ void SeederJob::run() {
         qtype = 1;
       else if (strcmp(type, "id") == 0)
         qtype = 2;
-      else  if (strcmp(request.getBody(), "1") == 0)
+      else if (strcmp(request.getBody(), "1") == 0)
         qtype = 3;
+      else if (strcmp(request.getBody(), "recent") == 0)
+        qtype = 4;
       else {
         char invalidRequestMessage[LOG_MESSAGE_LENGTH];
         sprintf(invalidRequestMessage, "Invalid request body: %s", request.getBytes());
@@ -90,19 +97,30 @@ void SeederJob::run() {
         continue;
       }
       lock();
-      for (std::map<char *, SeederNode *, StringCompare>::iterator it = clients->begin(); it != clients->end(); ++it) {
-        SeederNode *client = it->second;
-        if (qtype == 3 || (qtype == 1 && strcmp(body, client->getUsername()) == 0)) {
+      if(qtype == 4) {
+        for(int i = 0; i < recentClients->size(); i++){
+          SeederNode *client = recentClients->at(i);
           client->getPeer(peer);
           strcat(result, peer);
           strcat(result, ";");
-        }else if (qtype == 2 && strcmp(client->getClientId(), body) == 0) {
-          client->getPeer(peer);
-          strcat(result, peer);
-          strcat(result, ";");
-          break;
         }
-
+        printf("Results from inside %s\n", result);
+      }
+      else{
+        for (std::map<char *, SeederNode *, StringCompare>::iterator it = clients->begin(); it != clients->end(); ++it) {
+          SeederNode *client = it->second;
+          if (qtype == 3 || (qtype == 1 && strcmp(body, client->getUsername()) == 0)) {
+            client->getPeer(peer);
+            printf("%s\n", peer );
+            strcat(result, peer);
+            strcat(result, ";");
+          }else if (qtype == 2 && strcmp(client->getClientId(), body) == 0) {
+            client->getPeer(peer);
+            strcat(result, peer);
+            strcat(result, ";");
+            break;
+          }
+        }
       }
       unlock();
       Message resultMessage(Reply, result, _id, DEFAULT_MESSAGE_ID);
@@ -124,6 +142,13 @@ void SeederJob::run() {
   lock();
   printf("Removing user: %s\n", _client->getUsername());
   clients->erase(clientId);
+  for(int i = 0; i < recentClients->size(); i++){
+    if(strcmp((char*)recentClients->at(i)->getClientId(), clientId) == 0){
+      recentClients->erase(recentClients->begin() + i);
+      printf("recent size %d\n",recentClients->size());
+      break;
+    }
+  }
   printf("Removed %s\n", _client->getUsername());
   unlock();
 

@@ -230,7 +230,7 @@ int Client::execute() {
           localFile->setOffset(remoteFile->getOffset());
     }
 
-    printf("File state: %d", (int)Opened);
+    printf("File state: %d\ns", (int)Opened);
 
     localFile->close();
     remoteFile->close();

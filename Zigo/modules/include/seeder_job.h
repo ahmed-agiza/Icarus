@@ -2,7 +2,10 @@
 #define SEEDER_JOB_H
 
 #include <map>
+#include <vector>
+using std::vector;
 using std::map;
+
 
 
 #include "thread.h"
@@ -13,19 +16,19 @@ using std::map;
 #define STRING_COMPARE_OPERATOR
 struct StringCompare {
    bool operator()(char const *a, char const *b) {
-      //printf("%s(%d)=%s(%d)? %d\n", a, (int) strlen(a), b, (int) strlen(b), strcmp(a, b));
       return (strcmp(a, b) < 0);
    }
 };
 #endif
 
-
+#define RECENT_PEERS 5
 
 typedef map<char *, SeederNode *, StringCompare> SeedersMap;
+typedef vector<SeederNode *> RecentClients;
 
 class SeederJob : public Thread {
   SeederNode *_client;
-  void *_shared;
+  SharedPair *_shared;
   char _id[128];
 public:
   SeederJob();
