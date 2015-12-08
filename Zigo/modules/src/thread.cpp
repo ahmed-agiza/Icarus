@@ -127,7 +127,6 @@ void *Thread::getSharedData() const {
   return _shared;
 }
 
-
 int Thread::lock() const {
   if (_lock)
     return pthread_mutex_lock(_lock);

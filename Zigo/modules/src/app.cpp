@@ -76,7 +76,9 @@ int main(int argc, char const *argv[]) {
         printf("ID: ");
         scanf("%s", buf1);
         heartBeat->queryId(buf1);
-      } else {
+      } else if(strcmp(command, "4") == 0) {
+        heartBeat->queryRecent();
+      }else {
         heartBeat->queryOnline();
       }
 

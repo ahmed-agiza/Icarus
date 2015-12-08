@@ -16,6 +16,11 @@ class Thread;
 
 typedef void* (*ThreadCallback)(Thread *, void*);
 
+struct SharedPair {
+  void *first;
+  void *second;
+};
+
 class Thread {
   bool _running;
   bool _constructed;
@@ -29,6 +34,7 @@ class Thread {
   vector<ThreadCallback> _doneCallbacks;
   vector<void *> _parents;
   void *_shared;
+  //sharedPair *_shared;
   static void *_run(void *thisThread);
 protected:
   bool _terminationFlag;

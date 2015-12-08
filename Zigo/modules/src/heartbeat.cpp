@@ -145,7 +145,13 @@ void HeartBeat::queryId(char *id) {
   unlock();
   _wakeTimer();
 }
-
+void HeartBeat::queryRecent() {
+  lock();
+  _currentOperation = Querying;
+  strcpy(_queryParam, "recent");
+  unlock();
+  _wakeTimer();
+}
 bool HeartBeat::isConnected() const{
   return (_state == Connected);
 }

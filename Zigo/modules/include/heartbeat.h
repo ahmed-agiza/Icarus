@@ -37,6 +37,7 @@ public:
   void queryUsername(char *username);
   void queryId(char *id);
   void queryOnline();
+  void queryRecent();
 
   bool isConnected() const;
   bool isConnecting() const;

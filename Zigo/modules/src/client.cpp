@@ -6,7 +6,7 @@ Client::Client(const char *username, const char * hostname, uint16_t port, uint1
   strcpy(_username, username);
   memset(_id, 0, 128);
 
-  if (!File::exists(PUBLIC_KEY_PATH) || !File::exists(PRIVATE_KEY_PATH)) {
+  if (true || !File::exists(PUBLIC_KEY_PATH) || !File::exists(PRIVATE_KEY_PATH)) {
     printf("Generating RSA key pair!\n");
     Crypto::generateKeyPair(PRIVATE_KEY_PATH, PUBLIC_KEY_PATH);
   }
