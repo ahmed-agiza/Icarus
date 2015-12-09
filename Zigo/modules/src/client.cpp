@@ -27,19 +27,18 @@ Client::Client(const char *username, const char * hostname, uint16_t port, uint1
   printf("Client ID: %s\n", _id);
 
   if (pthread_mutex_init(&_operationLock, NULL) != 0)
-    throw MutexInitializationException();
+  throw MutexInitializationException();
   if (pthread_mutex_init(&_fetchingCvLock, NULL) != 0)
-    throw MutexInitializationException();
+  throw MutexInitializationException();
   if (pthread_cond_init(&_fetchingCv, NULL))
-    throw CVInitializationException();
+  throw CVInitializationException();
   setMutex(&_operationLock);
   setCV(&_fetchingCv);
-
 }
 
 int Client::_establishConnection() {
   if (_clientSocket)
-    delete _clientSocket;
+  delete _clientSocket;
 
   _clientSocket = new UDPSocket;
   _clientSocket->initialize(_hostname, _connectionPort);
@@ -55,7 +54,7 @@ int Client::_establishConnection() {
     ssize_t sentBytes = _sendMessage(connectionMessage);
 
     if(sentBytes < 0)
-      return -2;
+    return -2;
     uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
 
     printf("Attempting to connect..\n");
@@ -91,7 +90,7 @@ int Client::_establishConnection() {
     _clientSocket->setPort(_port);
     return 0;
   } catch (ReceiveTimeoutException &e) {
-    fprintf(stderr, "--%s\n", e.what());
+    fprintf(stderr, "%s\n", e.what());
     return -1;
   }
 }
@@ -99,6 +98,13 @@ int Client::_establishConnection() {
 void Client::run() {
   _busy = true;
   if (_establishConnection() < 0) {
+    if(_currentOperation == PingServer) {
+      strcpy(_results, "0");
+      _resultState = Ready;
+      _currentOperation = Idle;
+      resume();
+      return;
+    }
     printf("Connection failed!\n");
     return;
   }
@@ -125,249 +131,23 @@ int Client::execute() {
 
   lock();
   activeOperation = _currentOperation;
-  Message requestMessage = Message(Request, _queryParam, _id, DEFAULT_MESSAGE_ID);
   unlock();
   uint32_t maxRetry = Settings::getInstance().getRetryTimes();
   uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
 
   if(activeOperation == RSARequest || activeOperation == StegKey) {
-      while(!success && retry < (int)maxRetry) { //try to re-send packet if failed within MAX_RETRY
+    Message requestMessage = Message(Request, _queryParam, _id, DEFAULT_MESSAGE_ID);
+    while(!success && retry < (int)maxRetry) { //try to re-send packet if failed within MAX_RETRY
 
-        ssize_t sentBytes = _sendMessage(requestMessage); //send message to server
-
-        if(sentBytes < 0)
-          return -1;
-
-        if(_terminationRequest()){
-          break;
-        }
-
-        Message ackReply = _getReplyTimeout(clientReplyTo, 0);
-
-        if (ackReply.getType() != Acknowledge) {
-          char invalidReplyMessage[LOG_MESSAGE_LENGTH];
-          sprintf(invalidReplyMessage, "Invalid reply: %s", ackReply.getBytes());
-          Logger::error(invalidReplyMessage);
-          throw InvalidReplyException();
-        }
-
-        uint32_t ackNumber = (uint32_t) strtoull(ackReply.getBody(), NULL, 0);
-
-        success = (ackNumber == sentBytes);
-
-
-        sprintf(ackBack, "%d", (int) success);
-        Message ackBackReply(Acknowledge, ackBack, _id, DEFAULT_MESSAGE_ID);
-
-        sentAckBytes = _sendMessage(ackBackReply);
-        (void) sentAckBytes;
-
-        if(!success){ //packet loss
-          char misacknowledgmentMessage[LOG_MESSAGE_LENGTH];
-          sprintf(misacknowledgmentMessage, "Mismatch between acknowledgment and sent bytes (%d==%d)?.", (int)sentBytes, (int) ackNumber);
-          Logger::error(misacknowledgmentMessage);
-          retry++;
-          if(retry < (int)maxRetry){
-            char retryMessage[LOG_MESSAGE_LENGTH];
-            sprintf(retryMessage, "Retrying to send the message(%d)..", retry);
-            Logger::warn(retryMessage);
-          }
-        }
-      }
-
-
-      if(!success){
-        Logger::error("Failed to deliver your message.");
-        return -1;
-      }
-
-
-
-
-      Message replyMessage = _getReplyTimeout(clientReplyTo, 0);
-      if (replyMessage.getType() != Reply) {
-        char invalidReplyMessage[LOG_MESSAGE_LENGTH];
-        sprintf(invalidReplyMessage, "Invalid reply: %s", replyMessage.getBytes());
-        Logger::error(invalidReplyMessage);
-        throw InvalidReplyException();
-      }
-      const char *reply = replyMessage.getBody();
-
-      strcpy(_results, reply);
-
-      _resultState = Ready;
-      _currentOperation = Idle;
-      resume();
-  } else if (activeOperation == SendFile) {
-    char readBuff[1024];
-    memset(readBuff, 0, 1024);
-    FileState fileState;
-    File *localFile = File::open(_queryParam, O_RDONLY);
-    if (localFile->getFd() < 0)
-      throw FileOpenException();
-    File *remoteFile = File::ropen(_clientSocket, _extraParam, _id, _extraParam, AttemptCreate, &fileState);
-
-    memset(_results, 0, MAX_READ_SIZE);
-    sprintf(_results, "%d", (int)fileState);
-    if(fileState == Locked) {
-      printf("Locked!\n");
-      throw FileLockedException();
-    } else if (fileState != Opened) {
-      printf("Remote!\n");
-      throw FileOpenException();
-    }
-
-    off_t localOffset, remoteOffset;
-    while(!localFile->isEOF()) {
-      ssize_t readBytes = localFile->read(readBuff, 1024);
-      remoteFile->write(readBuff, readBytes);
-      localOffset = localFile->getOffset();
-      remoteOffset = remoteFile->getOffset();
-      printf("Writing %f%%..\n", 100.0 * (float)remoteOffset/(float)localFile->getFileSize());
-      if (!localFile->isEOF())
-        if (localOffset != remoteOffset)
-          localFile->setOffset(remoteFile->getOffset());
-    }
-
-    printf("File state: %d\ns", (int)Opened);
-
-    localFile->close();
-    remoteFile->close();
-
-    _resultState = Ready;
-    _currentOperation = Idle;
-
-    resume();
-  } else if (activeOperation == SendEncryptedFile) {
-    char readBuff[200], encryptedBuff[256];
-    memset(readBuff, 0, 200);
-    memset(encryptedBuff, 0, 256);
-    FileState fileState;
-    File *localFile = File::open(_queryParam, O_RDONLY);
-    if (localFile->getFd() < 0)
-      throw FileOpenException();
-    File *remoteFile = File::ropen(_clientSocket, _extraParam, _id, _extraParam, AttemptCreate, &fileState);
-
-    memset(_results, 0, MAX_READ_SIZE);
-    sprintf(_results, "%d", (int)fileState);
-    if(fileState == Locked) {
-      printf("Locked!\n");
-      throw FileLockedException();
-    } else if (fileState != Opened) {
-      printf("Remote!\n");
-      throw FileOpenException();
-    }
-
-    off_t localOffset, remoteOffset;
-    while(!localFile->isEOF()) {
-      ssize_t readBytes = localFile->read(readBuff, 200);
-      (void)readBytes;
-      int encryptionLength = Crypto::encrypt(_peerRSA, readBuff, encryptedBuff);
-      remoteFile->write(encryptedBuff, encryptionLength, DEFAULT_MESSAGE_ID, true);
-      localOffset = localFile->getOffset();
-      remoteOffset = remoteFile->getOffset();
-      printf("Writing %f%%..\n", 100.0 * (float)remoteOffset/(float)localFile->getFileSize());
-      if (!localFile->isEOF())
-        if (localOffset != remoteOffset)
-          localFile->setOffset(remoteFile->getOffset());
-    }
-
-    printf("File state: %d\ns", (int)Opened);
-
-    localFile->close();
-    remoteFile->close();
-
-    _resultState = Ready;
-    _currentOperation = Idle;
-
-    resume();
-  } else {
-    fprintf(stderr, "Invalid operation %d\n", (int) activeOperation);
-  }
-
-
-
-  return 0;
-  /*char tempBuff[2048]; //max char from user input
-  char ackBack[2];
-  bool success; //success if message was sent wihtout any packet loss
-  ssize_t sentBytes;  //number of bytes sent to the server
-  ssize_t sentAckBytes;
-  int retry;
-  File *file;
-  Message requestMessage;
-  while(1) {
-    success = 0;
-    retry = -1;
-    printf("Enter message to send:\n");
-    fgets(tempBuff, sizeof tempBuff, stdin);
-    tempBuff[strlen(tempBuff) - 1] = 0;
-    if (strcmp(tempBuff, "f") == 0) {
-      printf("Enter file operation (o=open, r=read, w=write, l=lseek, c=close): ");
-      fgets(tempBuff, sizeof tempBuff, stdin);
-      tempBuff[strlen(tempBuff) - 1] = 0;
-      if (strcmp(tempBuff, "o") == 0) {
-        printf("Enter file name: ");
-        fgets(tempBuff, sizeof tempBuff, stdin);
-        tempBuff[strlen(tempBuff) - 1] = 0;
-        file = File::ropen(_clientSocket, tempBuff, _id);
-        int fd = file->getFd();
-        printf("File descriptor: %d\n", fd);
-
-        success = 1;
-
-        sprintf(ackBack, "%d", (int) success);
-        Message ackBackReply(Acknowledge, ackBack, _id, DEFAULT_MESSAGE_ID);
-
-        sentAckBytes = _sendMessage(ackBackReply);
-        (void) sentAckBytes;
-
-      } else if (strcmp(tempBuff, "r") == 0) {
-        char readingBuffer[2048];
-        file->read(readingBuffer, 5);
-
-        printf("Read: %s\n", readingBuffer);
-      } else if (strcmp(tempBuff, "w") == 0) {
-        printf("Enter data: ");
-        fgets(tempBuff, sizeof tempBuff, stdin);
-        tempBuff[strlen(tempBuff) - 1] = 0;
-        size_t writtenBytes = file->write(tempBuff, strlen(tempBuff));
-        printf("Written %zd\n", writtenBytes);
-      } else if (strcmp(tempBuff, "l") == 0) {
-        printf("Enter new position: ");
-        fgets(tempBuff, sizeof tempBuff, stdin);
-        tempBuff[strlen(tempBuff) - 1] = 0;
-        printf("Temp Buff: %s\n", tempBuff);
-        off_t offset = (off_t)atol(tempBuff);
-        printf("%d\n", (int)offset);
-        file->setOffset(offset);
-        printf("Offset updated!\n");
-      } else if (strcmp(tempBuff, "c") == 0) {
-        printf("Closing..\n");
-        fflush(stdout);
-        printf("Client: File close %d\n", file->close());
-      }
-      continue;
-    } else {
-      requestMessage = Message(Request, tempBuff, _id, DEFAULT_MESSAGE_ID); //wrap the text in message form
-    }
-
-    uint32_t maxRetry = Settings::getInstance().getRetryTimes();
-
-    while(!success && retry < (int)maxRetry){ //try to re-send packet if failed within MAX_RETRY
-      printf("Sending %s..\n", tempBuff);
-      fflush(stdout);
-
-
-      sentBytes = _sendMessage(requestMessage); //send message to server
+      ssize_t sentBytes = _sendMessage(requestMessage); //send message to server
 
       if(sentBytes < 0)
       return -1;
-      if(requestMessage.isTerminationMessage()){
+
+      if(_terminationRequest()){
         break;
       }
 
-      uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
       Message ackReply = _getReplyTimeout(clientReplyTo, 0);
 
       if (ackReply.getType() != Acknowledge) {
@@ -401,21 +181,15 @@ int Client::execute() {
       }
     }
 
-    if(requestMessage.isTerminationMessage()){
-      break;
-    }
 
     if(!success){
       Logger::error("Failed to deliver your message.");
-      continue;
+      return -1;
     }
 
 
 
-    printf("Receiving reply..\n");
 
-
-    uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
     Message replyMessage = _getReplyTimeout(clientReplyTo, 0);
     if (replyMessage.getType() != Reply) {
       char invalidReplyMessage[LOG_MESSAGE_LENGTH];
@@ -424,10 +198,219 @@ int Client::execute() {
       throw InvalidReplyException();
     }
     const char *reply = replyMessage.getBody();
-    printf("Reply: \"%s\"\n", reply);
 
+    strcpy(_results, reply);
+
+    _resultState = Ready;
+    _currentOperation = Idle;
+    resume();
+  } else if (activeOperation == SendFile) {
+    char readBuff[1024];
+    memset(readBuff, 0, 1024);
+    FileState fileState;
+    File *localFile = File::open(_queryParam, O_RDONLY);
+    if (localFile->getFd() < 0)
+    throw FileOpenException();
+    File *remoteFile = File::ropen(_clientSocket, _extraParam, _id, _extraParam, AttemptCreate, &fileState);
+
+    memset(_results, 0, MAX_READ_SIZE);
+    sprintf(_results, "%d", (int)fileState);
+    if(fileState == Locked) {
+      printf("Locked!\n");
+      throw FileLockedException();
+    } else if (fileState != Opened) {
+      printf("Remote!\n");
+      throw FileOpenException();
+    }
+
+    off_t localOffset, remoteOffset;
+    while(!localFile->isEOF()) {
+      ssize_t readBytes = localFile->read(readBuff, 1024);
+      remoteFile->write(readBuff, readBytes);
+      localOffset = localFile->getOffset();
+      remoteOffset = remoteFile->getOffset();
+      float percentage = 100.0 * (float)remoteOffset/(float)localFile->getFileSize();
+      if (percentage > 100.0)
+      percentage = 100.0;
+      printf("Writing %f%%..\n", percentage);
+      if (!localFile->isEOF())
+      if (localOffset != remoteOffset)
+      localFile->setOffset(remoteFile->getOffset());
+    }
+
+    printf("File state: %d\ns", (int)Opened);
+
+    localFile->close();
+    remoteFile->close();
+
+    _resultState = Ready;
+    _currentOperation = Idle;
+
+    resume();
+  } else if (activeOperation == SendEncryptedFile) {
+    printf("Sending encrypted file..\n");
+    char readBuff[200], encryptedBuff[256];
+    memset(readBuff, 0, 200);
+    memset(encryptedBuff, 0, 256);
+    FileState fileState;
+    File *localFile = File::open(_queryParam, O_RDONLY);
+    if (localFile->getFd() < 0)
+      throw FileOpenException();
+    File *remoteFile = File::ropen(_clientSocket, _extraParam, _id, _extraParam, AttemptCreate, &fileState);
+
+    memset(_results, 0, MAX_READ_SIZE);
+    sprintf(_results, "%d", (int)fileState);
+    if(fileState == Locked) {
+      printf("Locked!\n");
+      throw FileLockedException();
+    } else if (fileState != Opened) {
+      printf("Remote!\n");
+      throw FileOpenException();
+    }
+
+    off_t localOffset, remoteOffset;
+    while(!localFile->isEOF()) {
+      memset(readBuff, 0, 200);
+      memset(encryptedBuff, 0, 256);
+      ssize_t readBytes = localFile->read(readBuff, 200);
+
+      (void)readBytes;
+      int encryptionLength = Crypto::encrypt(_peerRSA, readBuff, encryptedBuff);
+      remoteFile->write(encryptedBuff, readBytes, DEFAULT_MESSAGE_ID, true, encryptionLength);
+      char temp[5000];
+      Crypto::base64Encode(encryptedBuff, encryptionLength, temp, 5000);
+
+      localOffset = localFile->getOffset();
+      remoteOffset = remoteFile->getOffset();
+      float percentage = 100.0 * (float)remoteOffset/(float)localFile->getFileSize();
+      if (percentage > 100.0)
+        percentage = 100.0;
+      printf("Writing %f%%..\n", percentage);
+      if (!localFile->isEOF())
+        if (localOffset != remoteOffset)
+          localFile->setOffset(remoteFile->getOffset());
+    }
+
+    printf("File state: %d\ns", (int)Opened);
+
+    localFile->close();
+    remoteFile->close();
+
+    _resultState = Ready;
+    _currentOperation = Idle;
+
+    resume();
+  } else if (activeOperation == SendTempFile) {
+    char readBuff[200], encryptedBuff[256];
+    memset(readBuff, 0, 200);
+    memset(encryptedBuff, 0, 256);
+    FileState fileState;
+    File *localFile = File::open(_queryParam, O_RDONLY);
+    if (localFile->getFd() < 0)
+    throw FileOpenException();
+    File *remoteFile = File::ropen(_clientSocket, _extraParam, _id, _extraParam, AttemptCreate, &fileState);
+
+    memset(_results, 0, MAX_READ_SIZE);
+    sprintf(_results, "%d", (int)fileState);
+    if(fileState == Locked) {
+      printf("Locked!\n");
+      throw FileLockedException();
+    } else if (fileState != Opened) {
+      printf("Remote!\n");
+      throw FileOpenException();
+    }
+
+    off_t localOffset, remoteOffset;
+    while(!localFile->isEOF()) {
+      ssize_t readBytes = localFile->read(readBuff, 200);
+      (void)readBytes;
+      int encryptionLength = Crypto::encrypt(_peerRSA, readBuff, encryptedBuff);
+      remoteFile->write(encryptedBuff, encryptionLength, DEFAULT_MESSAGE_ID, encryptionLength);
+      localOffset = localFile->getOffset();
+      remoteOffset = remoteFile->getOffset();
+      float percentage = 100.0 * (float)remoteOffset/(float)localFile->getFileSize();
+      if (percentage > 100.0)
+      percentage = 100.0;
+      printf("Writing %f%%..\n", percentage);
+      if (!localFile->isEOF())
+      if (localOffset != remoteOffset)
+      localFile->setOffset(remoteFile->getOffset());
+    }
+
+    printf("File state: %d\ns", (int)Opened);
+
+    localFile->close();
+    remoteFile->close();
+
+    _resultState = Ready;
+    _currentOperation = Idle;
+
+    resume();
+  } else if (activeOperation == UpdateImageViews) {
+    char paramsBuffer[1024];
+    sprintf(paramsBuffer, "%s;%s;", _queryParam, _extraParam);
+    Message requestMessage = Message(UpdateImage, paramsBuffer, _id, DEFAULT_MESSAGE_ID);
+
+    ssize_t sentBytes = _sendMessage(requestMessage); //send message to server
+
+    if(sentBytes < 0)
+      return -1;
+
+    Message replyMessage = _getReplyTimeout(clientReplyTo, 0);
+    if (replyMessage.getType() != Reply) {
+      char invalidReplyMessage[LOG_MESSAGE_LENGTH];
+      sprintf(invalidReplyMessage, "Invalid reply: %s", replyMessage.getBytes());
+      Logger::error(invalidReplyMessage);
+      throw InvalidReplyException();
+    }
+    const char *reply = replyMessage.getBody();
+
+    strcpy(_results, reply);
+    printf("Reply: %s\n", reply);
+
+    _resultState = Ready;
+    _currentOperation = Idle;
+
+    resume();
+  } else if (activeOperation == PingServer) {
+    Message requestMessage = Message(Ping, "1", _id, DEFAULT_MESSAGE_ID);
+
+    ssize_t sentBytes = _sendMessage(requestMessage); //send message to server
+
+    if(sentBytes < 0)
+      return -1;
+    Message replyMessage;
+    try {
+      replyMessage = _getReplyTimeout(clientReplyTo, 0);
+    } catch (ReceiveTimeoutException &e) {
+      strcpy(_results, "0");
+      _resultState = Ready;
+      _currentOperation = Idle;
+      resume();
+      return 0;
+    }
+    if (replyMessage.getType() != Pong) {
+      char invalidReplyMessage[LOG_MESSAGE_LENGTH];
+      sprintf(invalidReplyMessage, "Invalid reply: %s", replyMessage.getBytes());
+      Logger::error(invalidReplyMessage);
+      strcpy(_results, "0");
+      throw InvalidReplyException();
+    }
+
+    strcpy(_results, "1");
+
+    _resultState = Ready;
+    _currentOperation = Idle;
+
+    resume();
+  } else {
+    fprintf(stderr, "Invalid operation %d\n", (int) activeOperation);
   }
-  return 0;*/
+
+
+
+  return 0;
+
 }
 
 bool Client::reset() {
@@ -448,12 +431,12 @@ int Client::fetchResults(char *buf) {
   unlock();
   if (currentState != Ready){
     if(currentOperation == Pinging)
-      throw InvalidOperationContext();
+    throw InvalidOperationContext();
     pause(&_fetchingCvLock);
   }
   _resultState = Steady;
   if(_resultState == Failed)
-    return -1;
+  return -1;
   strcpy(buf, _results);
   return 0;
 }
@@ -465,13 +448,31 @@ void Client::sendFile(const char *filename, const char *fileId) {
   _currentOperation = SendFile;
   unlock();
   start();
-;}
+}
+
+void Client::sendTempFile(const char *filename, const char *fileId) {
+  lock();
+  setCommand((char *) filename);
+  setExtra((char *) fileId);
+  _currentOperation = SendTempFile;
+  unlock();
+  start();
+}
 
 void Client::sendEncryptedFile(const char *filename, const char *fileId) {
   lock();
   setCommand((char* ) filename);
   setExtra((char *) fileId);
   _currentOperation = SendEncryptedFile;
+  unlock();
+  start();
+}
+
+void Client::updateImage(const char *fileId, const char *newCount) {
+  lock();
+  setCommand((char* ) fileId);
+  setExtra((char *) newCount);
+  _currentOperation = UpdateImageViews;
   unlock();
   start();
 }
@@ -502,6 +503,13 @@ void Client::queryStegKey() {
   lock();
   _currentOperation = StegKey;
   setCommand("steg");
+  unlock();
+  start();
+}
+
+void Client::pingServer() {
+  lock();
+  _currentOperation = PingServer;
   unlock();
   start();
 }

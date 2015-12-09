@@ -157,7 +157,7 @@ int main(int argc, char const *argv[]) {
       numberOfViews = atoi(buf2);
       char extraData[256];
       memset(extraData, 0, 256);
-      sprintf(extraData, "%s;%d;", appId, numberOfViews);
+      sprintf(extraData, "%s;%d;%d;", appId, numberOfViews, numberOfViews);
       char *rsa = (char *) peer.getRSA();
       char *stegKey = (char *) peer.getStegKey();
       printf("Sending %s\nViews: %s\nStegkey: %s\n", imagePath, extraData, stegKey);
@@ -225,7 +225,7 @@ int main(int argc, char const *argv[]) {
       numberOfViews = atoi(buf2);
       char extraData[256];
       memset(extraData, 0, 256);
-      sprintf(extraData, "%s;%d;", appId, numberOfViews);
+      sprintf(extraData, "%s;%d;%d;", appId, numberOfViews, numberOfViews);
       char *rsa = (char *) peer.getRSA();
       char *stegKey = (char *) peer.getStegKey();
       printf("Sending %s\nViews: %s\nStegkey: %s\n", imagePath, extraData, stegKey);
@@ -257,7 +257,7 @@ int main(int argc, char const *argv[]) {
       File::joinPaths(finalFilePath, userFilePath, fileId);
       File::rename(encryptedFilePath, finalFilePath);
 
-      client->sendFile(finalFilePath, fileId);
+      client->sendEncryptedFile(finalFilePath, fileId);
 
       client->fetchResults(buf1);
 
@@ -268,10 +268,166 @@ int main(int argc, char const *argv[]) {
     } else if (strcmp(command, "update-image") == 0) {
       printf("Target User: ");
       scanf("%s", command);
+      if(peers.find(command) == peers.end()) {
+        printf("Peer %s does not exist in your map!\n", command);
+        continue;
+      }
+      Peer &peer = peers[command];
+      printf("Address: %s\n", peer.getPeerAddress());
+      printf("Exists.\n");
+      fflush(stdout);
+      const char *ip = peer.getPeerAddress();
+      uint16_t port = peer.getPortNumber();
+      Client *client = clients.get(command, username, ip, port);
+
       printf("Image ID: ");
       scanf("%s", buf1);
       printf("New number of views: ");
       scanf("%s", buf2);
+
+      client->updateImage(buf1, buf2);
+      client->fetchResults(buf1);
+    } else if (strcmp(command, "send-temp") == 0) {
+      int numberOfViews = 0;
+      printf("Target User: ");
+      scanf("%s", command);
+
+      if(peers.find(command) == peers.end()) {
+        printf("Peer %s does not exist in your map!\n", command);
+        continue;
+      }
+      Peer &peer = peers[command];
+      printf("Address: %s\n", peer.getPeerAddress());
+      printf("Exists.\n");
+      fflush(stdout);
+      const char *ip = peer.getPeerAddress();
+      uint16_t port = peer.getPortNumber();
+      Client *client = clients.get(command, username, ip, port);
+
+      printf("Image file: ");
+      scanf("%s", buf1);
+      char *imagePath = buf1;
+      if (!File::exists(imagePath)) {
+        printf("Image %s does not exist!\n", imagePath);
+        continue;
+      }
+      printf("Number of views: ");
+      scanf("%s", buf2);
+      numberOfViews = atoi(buf2);
+      char extraData[256];
+      memset(extraData, 0, 256);
+      sprintf(extraData, "%s;%d;%d;", appId, numberOfViews, numberOfViews);
+      char *rsa = (char *) peer.getRSA();
+      char *stegKey = (char *) peer.getStegKey();
+      printf("Sending %s\nViews: %s\nStegkey: %s\n", imagePath, extraData, stegKey);
+      client->setPeerRSA(rsa);
+
+      char userFilePath[PATH_MAX];
+      char fileName[PATH_MAX];
+      char encryptedFilePath[PATH_MAX];
+      char finalFilePath[PATH_MAX];
+      char fileId[PATH_MAX];
+      char originalHash[64];
+      char coverFile[] = "cover.jpg";
+
+      Crypto::md5HashFile(imagePath, originalHash);
+      memset(userFilePath, 0, PATH_MAX);
+      memset(fileName, 0, PATH_MAX);
+      memset(encryptedFilePath, 0, PATH_MAX);
+      memset(finalFilePath, 0, PATH_MAX);
+      memset(fileId, 0, PATH_MAX);
+      sprintf(userFilePath, "storage/%s/sent", peer.getId());
+      File::joinPaths(encryptedFilePath, userFilePath, originalHash);
+      strcat(fileId, peer.getId());
+      strcat(fileId, "-");
+
+      int rc = Steganography::encryptImage(userFilePath, imagePath, coverFile, originalHash, extraData, stegKey);
+      (void) rc;
+
+      strcat(fileId, originalHash);
+      File::joinPaths(finalFilePath, userFilePath, fileId);
+      File::rename(encryptedFilePath, finalFilePath);
+
+      client->sendTempFile(finalFilePath, fileId);
+
+      client->fetchResults(buf1);
+
+      FileState operationResult = (FileState) atoi(buf1);
+
+      printf("Opeartion result: %d\n", (int) operationResult);
+
+    } else if (strcmp(command, "flush-temp") == 0) {
+      printf("Target User: ");
+      scanf("%s", command);
+      printf("Image ID: ");
+      scanf("%s", buf1);
+      printf("New number of views: ");
+      scanf("%s", buf2);
+    } else if (strcmp(command, "view-count") == 0) {
+      char imagePath[PATH_MAX], imageDir[PATH_MAX],
+           imageName[PATH_MAX], decryptionPath[PATH_MAX],
+           decryptionName[PATH_MAX];
+
+      memset(imageDir, 0, PATH_MAX);
+      memset(imagePath, 0, PATH_MAX);
+      memset(imageName, 0, PATH_MAX);
+      memset(decryptionName, 0, PATH_MAX);
+      memset(decryptionPath, 0, PATH_MAX);
+
+      strcpy(imageDir, "storage/");
+      printf("Sender ID: ");
+      scanf("%s", command);
+      strcat(imageDir, command);
+      strcpy(imagePath, imageDir);
+      strcat(imagePath, "/recv");
+      printf("Image ID: ");
+      scanf("%s", buf1);
+      strcat(imagePath, "/");
+      strcat(imageName, appId);
+      strcat(imageName, "-");
+      strcat(imageName, buf1);
+      strcat(imagePath, imageName);
+      printf("Image directory: %s\n", imageDir);
+      printf("Image path: %s\n", imagePath);
+      if (!File::exists(imagePath)) {
+        fprintf(stderr, "Image does not exist!\n");
+        continue;
+      }
+      int rc = Steganography::getImageData(imageDir, imagePath, buf2, 2048, stegKey);
+      printf("Image data: %s\n", buf2);
+      if(rc) {
+        fprintf(stderr, "Failed to decrypt the image.\n");
+        continue;
+      }
+      int currentViewCount;
+      int totalViewCount;
+      char owner[256];
+      if(sscanf(buf2, "%[^;]%*c%d;%d;", owner, &totalViewCount, &currentViewCount) != 3) {
+        fprintf(stderr, "Invalid image!\n");
+        File::remove(decryptionPath);
+        continue;
+      }
+      printf("Total count: %d\nCurrent count: %d\n", totalViewCount, currentViewCount);
+    } else if (strcmp(command, "client-status") == 0) {
+      printf("User ID: ");
+      scanf("%s", command);
+      if(peers.find(command) == peers.end()) {
+        printf("Peer %s does not exist in your map!\n", command);
+        continue;
+      }
+      Peer &peer = peers[command];
+      printf("Address: %s\n", peer.getPeerAddress());
+      printf("Exists.\n");
+      fflush(stdout);
+      const char *ip = peer.getPeerAddress();
+      uint16_t port = peer.getPortNumber();
+      Client *client = clients.get(command, username, ip, port);
+      client->pingServer();
+      client->fetchResults(buf1);
+      if(strcmp(buf1, "1") == 0)
+        printf("Online.\n");
+      else
+        printf("Offline.\n");
     } else if (strcmp(command, "decrypt-image") == 0) {
       char imagePath[PATH_MAX], imageDir[PATH_MAX],
            imageName[PATH_MAX], decryptionPath[PATH_MAX],
@@ -315,8 +471,9 @@ int main(int argc, char const *argv[]) {
         continue;
       }
       int currentViewCount;
+      int totalViewCount;
       char owner[256];
-      if(sscanf(buf2, "%[^;]%*c%d", owner, &currentViewCount) != 2) {
+      if(sscanf(buf2, "%[^;]%*c%d;%d;", owner, &totalViewCount, &currentViewCount) != 3) {
         fprintf(stderr, "Invalid image!\n");
         File::remove(decryptionPath);
         continue;
@@ -329,7 +486,7 @@ int main(int argc, char const *argv[]) {
       }
       printf("Current view count: %d\n", currentViewCount);
       currentViewCount--;
-      sprintf(updatedCount, "%s;%d;", owner, currentViewCount);
+      sprintf(updatedCount, "%s;%d;%d;", owner, totalViewCount, currentViewCount);
       int updateRC = Steganography::updateImageData(imageDir, imagePath, updatedCount, stegKey);
       if(updateRC) {
         fprintf(stderr, "Failed to update the image!\n");

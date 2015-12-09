@@ -148,3 +148,4 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 
 clean:
 	rm -f $(BINARIES) *.o $(OBJ_DIR)/*.o $(BUILD_DIR)/core $(OBJ_DIR)/core
+	rm -rf $(BUILD_DIR)/storage

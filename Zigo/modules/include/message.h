@@ -19,15 +19,15 @@ enum MessageType {
   Request = 0, // Q
   Reply = 1, // R
   Connect = 2, // C
-  Accept = 3, // A
+  Accept = 3, // Y
   Decline = 4, // D
   Auth = 5, //Z
   Verify = 6, //V
   Ping = 7, // P
   Pong = 8, //G
   Query = 9, //U
-  Terminate = 10,
-  Acknowledge = 11,
+  Terminate = 10, //T
+  Acknowledge = 11, //A
   Packet = 12, //F
   Open = 13, //O
   Close = 14, //X
@@ -36,6 +36,7 @@ enum MessageType {
   Lseek = 17, //L
   Eof = 18, //E
   Information = 19, //I
+  UpdateImage = 20, //H
   Unknown = -1 // N
 };
 

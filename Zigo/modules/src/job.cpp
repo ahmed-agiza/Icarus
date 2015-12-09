@@ -148,20 +148,73 @@ void Job::handleRemoteFile(Message &request) {
 
     if(request.getEncoding() == RSAEncryption) {
       char decryptedWriteBuffer[50000];
-      Crypto::decrypt((char *) getServerRSA(), decryptedWriteBuffer, decodedWriteBuffer);
-      writtenBytes = file->write(decodedWriteBuffer, writeSize);
-    } else
+      Crypto::decrypt(_rsa, decodedWriteBuffer, decryptedWriteBuffer);
+      writtenBytes = file->write(decryptedWriteBuffer, writeSize);
+    } else {
        writtenBytes = file->write(decodedWriteBuffer, decodeLen);
+     }
     char writtenStr[32];
     sprintf(writtenStr, "%zd", writtenBytes);
     Message writtenByes(Reply, writtenStr, _id, DEFAULT_MESSAGE_ID);
     _handlerSocket->sendMessage(writtenByes);
 
-  }else {
+  } else if (request.getType() == UpdateImage) {
+    char filePath[PATH_MAX], fileDir[PATH_MAX];
+    char fileId[256];
+
+
+    int newCount;
+    if(sscanf(request.getBody(), "%[^;]%*c%d;", fileId, &newCount) != 2) {
+      char invalidRequestMessage[LOG_MESSAGE_LENGTH];
+      sprintf(invalidRequestMessage, "Invalid request body\n%s\nin\n%s\n", request.getBody(), request.getBytes());
+      Logger::error(invalidRequestMessage);
+      throw InvalidReplyException();
+    }
+
+    sprintf(fileDir, "storage/%s/recv", request.getOwnerId());
+    File::createDirIfNotExists(fileDir);
+    sprintf(filePath, "%s/%s-%s", fileDir, _id, fileId);
+
+    if (!File::exists(filePath)) {
+      sprintf(replyMessage, "%d", (int) Noent);
+      Message enoentMessage(Reply, replyMessage, _id, fileId);
+      _handlerSocket->sendMessage(enoentMessage);
+      return;
+    }
+    int updateRC = _updateImageCount(fileDir, filePath, newCount);
+    sprintf(replyMessage, "%d;", updateRC);
+    Message updateReply(Reply, replyMessage, _id, fileId);
+    _handlerSocket->sendMessage(updateReply);
+  } else {
     printf("Invalid request!\n");
   }
 }
 
+int Job::_updateImageCount(char *fileDir, char *filePath, int newCount) {
+  char buf[256], newBuf[256];
+  int rc = Steganography::getImageData(fileDir, filePath, buf, sizeof(buf), (char *)getStegKey());
+  if(rc)
+    return -1;
+
+  int currentViewCount;
+  int totalViewCount;
+  char owner[256];
+  if(sscanf(buf, "%[^;]%*c%d;%d;", owner, &totalViewCount, &currentViewCount) != 3) {
+    fprintf(stderr, "Invalid image!\n");
+    return -3;
+  }
+  if (currentViewCount > newCount || newCount - (totalViewCount - currentViewCount) < 0)
+    sprintf(newBuf, "%s;%d;0;", owner, newCount);
+  else
+    sprintf(newBuf, "%s;%d;%d;", owner, newCount, newCount - (totalViewCount - currentViewCount));
+
+  rc = Steganography::updateImageData(fileDir, filePath, newBuf, (char *)getStegKey());
+
+  if (rc)
+    return -2;
+
+  return 0;
+}
 
 void Job::run() {
   _handlerSocket = _client->getSocket();
@@ -207,6 +260,11 @@ void Job::run() {
 
       if (request.isFileOperation()){
         handleRemoteFile(request);
+        continue;
+      } else if (request.getType() == Ping) {
+        Message pongReply(Pong, "1", _id, DEFAULT_MESSAGE_ID);
+        ssize_t sentPong = _handlerSocket->sendMessage(pongReply);
+        (void)sentPong;
         continue;
       } else if(request.getType() != Request) {
         char invalidRequestMessage[LOG_MESSAGE_LENGTH];
@@ -297,6 +355,13 @@ void Job::setServerRSA(char *key) {
 
 const char *Job::getServerRSA() const {
   return _serverRSA;
+}
+
+void Job::setRSA(char *key) {
+  _rsa = key;
+}
+const char *Job::getRSA() const {
+  return _rsa;
 }
 
 void Job::setStegKey(char *key) {

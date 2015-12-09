@@ -154,6 +154,7 @@ void Server::serveRequest(Message  &request) {
     job->setId(_id);
     job->addDoneCallback(_threadDoneWrapper, this);
     job->setServerRSA(_publicRSA);
+    job->setRSA(_privateRSA);
     job->setStegKey(_stegKey);
 
     ClientNode *client = _addClient(connectionStr, clientPort, job);

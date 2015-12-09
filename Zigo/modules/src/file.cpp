@@ -261,7 +261,7 @@ ssize_t File::read(void *buf, size_t count, char *messageId) {
 }
 
 
-ssize_t File::write(const void *buf, size_t count, char *messageId, bool rsaEncrypted) {
+ssize_t File::write(const void *buf, size_t count, char *messageId, bool rsaEncrypted, size_t encodeLen) {
   if (isLocal()) {
     lseek(_fd, SEEK_SET, _offset);
     ssize_t writtenByes = ::write(_fd, buf, count);
@@ -270,8 +270,12 @@ ssize_t File::write(const void *buf, size_t count, char *messageId, bool rsaEncr
   } else {
     char params[5860];
     char encodedBuffer[5000];
-    size_t encodedLength;
-    Crypto::base64Encode(buf, count, encodedBuffer, 5000);
+
+    if ((int)encodeLen < 0) {
+
+      Crypto::base64Encode(buf, count, encodedBuffer, 5000);
+    } else
+      Crypto::base64Encode(buf, encodeLen, encodedBuffer, 5000);
     if (strlen(encodedBuffer) > 0)
       sprintf(params, "%d\n%zd\n%s", _fd, count, (char *)encodedBuffer);
     else

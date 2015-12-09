@@ -80,7 +80,7 @@ size_t Message::writeFile(const char *fileName) {
 }
 
 bool Message::isFileOperation() {
-  return (_type == Open || _type == Read || _type == Write || _type == Close || _type == Lseek);
+  return (_type == Open || _type == Read || _type == Write || _type == Close || _type == Lseek || _type == UpdateImage);
 }
 
 const char *Message::getBytes() const {
@@ -175,6 +175,8 @@ MessageType Message:: _letterToType(char typeLetter) const {
     return Eof;
   else if (typeLetter == 'I')
     return Information;
+  else if (typeLetter == 'H')
+    return UpdateImage;
   else
     return Unknown;
 }
@@ -220,6 +222,8 @@ char Message::_typeToLetter(MessageType type) const {
     return 'E';
   else if (type == Information)
     return 'I';
+  else if (type == UpdateImage)
+    return 'H';
   else
     return 'N';
 }

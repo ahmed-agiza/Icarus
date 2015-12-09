@@ -15,7 +15,10 @@ enum Operation {
   StegKey = 4,
   OpenFile = 5,
   SendFile = 6,
-  SendEncryptedFile = 7
+  SendTempFile = 7,
+  SendEncryptedFile = 8,
+  UpdateImageViews = 9,
+  PingServer = 10
 };
 
 enum State {
@@ -77,6 +80,9 @@ public:
 
   void sendFile(const char *filename, const char *fileId);
   void sendEncryptedFile(const char *filename, const char *fileId);
+  void sendTempFile(const char *filename, const char *fileId);
+  void pingServer();
+  void updateImage(const char *fileId, const char *newCount);
 
   void setExtra(char *extra);
   void setPeerRSA(char *rsa);
