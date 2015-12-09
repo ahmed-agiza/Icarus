@@ -24,6 +24,10 @@ class HeartBeat : public Client {
   pthread_mutex_t _timerMutex;
 
   timespec _pingTime;
+  ThreadCallback _connectedCallback;
+  void *_connectionParent;
+
+  char _searchParam[128];
 
   void _waitTimer(long waitVal);
   void _wakeTimer();
@@ -39,8 +43,12 @@ public:
   void queryOnline();
   void queryRecent();
 
+  const char *getSearchParam();
+
   bool isConnected() const;
   bool isConnecting() const;
+
+  void setConnectedCallback(ThreadCallback callback, void *parent);
 
   //Message * execute(Message * _message);
   ~HeartBeat();

@@ -85,6 +85,14 @@ bool ClientNode::hasOpenFile(int fd) {
   return false;
 }
 
+void ClientNode::setServerPort(uint16_t port) {
+  _serverPort = port;
+}
+
+uint16_t ClientNode::getServerPort() const {
+  return _serverPort;
+}
+
 map<int, File *> &ClientNode::getFileTable() {
   return _openFiles;
 }

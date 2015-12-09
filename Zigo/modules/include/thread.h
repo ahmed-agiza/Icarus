@@ -34,6 +34,7 @@ class Thread {
   vector<ThreadCallback> _doneCallbacks;
   vector<void *> _parents;
   void *_shared;
+  bool _autoRestart;
   //sharedPair *_shared;
   static void *_run(void *thisThread);
 protected:
@@ -49,6 +50,7 @@ public:
   int start();
   void wait();
   void join();
+  void autoRestart();
   bool isRunning() const;
   pthread_t getId() const;
   pthread_mutex_t *getMutex() const;

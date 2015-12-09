@@ -43,6 +43,10 @@ int main(int argc, char const *argv[]) {
   char param[128];
   char buf1[2048];
   char buf2[2048];
+  char buf3[2048];
+  char stegKey[2048];
+  memset(stegKey, 0, 2048);
+  Crypto::generateRandomString(stegKey, 64);
 
   ClientManager clients;
 
@@ -51,7 +55,7 @@ int main(int argc, char const *argv[]) {
   heartBeat = new HeartBeat(username, seederIP, seederPort, serverPort);
   strcpy(appId, heartBeat->getId());
   Server *server = new Server(serverPort);
-  const char *stegKey = server->getStegKey();
+  server->setStegKey(stegKey);
   const char *publicRSA = server->getPublicRSA();
   const char *privateRSA = server->getPrivateRSA();
   server->start();
@@ -65,6 +69,7 @@ int main(int argc, char const *argv[]) {
     memset(param, 0, 128);
     memset(buf1, 0, 2048);
     memset(buf2, 0, 2048);
+    memset(buf3, 0, 2048);
 
     printf("New command: ");
     scanf("%s", command);
@@ -113,14 +118,18 @@ int main(int argc, char const *argv[]) {
           const char *ip = peer.getPeerAddress();
           uint16_t port = peer.getPortNumber();
           Client *client = clients.get(command, username, ip, port);
-          client->queryRSA();
+          client->queryKeys();
           client->fetchResults(buf1);
-          printf("RSA: %s\n", buf1);
-          peer.setRSA(buf1);
-          client->queryStegKey();
-          client->fetchResults(buf2);
+          if(sscanf(buf1, "%[^;]%*c%[^;];", buf2, buf3) != 2) {
+            fprintf(stderr, "Invalid reply %s\n", buf1);
+            continue;
+          }
           printf("Steg Key: %s\n", buf2);
           peer.setStegKey(buf2);
+          printf("RSA: %s\n", buf3);
+          peer.setRSA(buf3);
+
+
           executed = true;
         }
 
@@ -195,7 +204,34 @@ int main(int argc, char const *argv[]) {
       FileState operationResult = (FileState) atoi(buf1);
 
       printf("Opeartion result: %d\n", (int) operationResult);
+    } else if (strcmp(command, "send-plain") == 0) {
+      char fileId[512];
+      printf("Target User: ");
+      scanf("%s", command);
+      if(peers.find(command) == peers.end()) {
+        printf("Peer %s does not exist in your map!\n", command);
+        continue;
+      }
+      Peer &peer = peers[command];
+      printf("Address: %s\n", peer.getPeerAddress());
+      printf("Exists.\n");
+      fflush(stdout);
+      const char *ip = peer.getPeerAddress();
+      uint16_t port = peer.getPortNumber();
+      Client *client = clients.get(command, username, ip, port);
 
+      printf("Image file: ");
+      scanf("%s", buf1);
+      char *imagePath = buf1;
+      if (!File::exists(imagePath)) {
+        printf("Image %s does not exist!\n", imagePath);
+        continue;
+      }
+      Crypto::md5HashFile(imagePath, fileId);
+      client->sendFile(imagePath, fileId);
+
+      client->fetchResults(buf1);
+      printf("Results: %s\n", buf1);
     } else if (strcmp(command, "send-encrypted") == 0) {
       int numberOfViews = 0;
       printf("Target User: ");

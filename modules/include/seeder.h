@@ -21,7 +21,9 @@ private:
   pthread_mutex_t _mapLock;
 
   SeedersMap _clients;
+  vector<SeederNode *> _recentClients;
 
+  SharedPair _shared;
   size_t _jobCount;
   ThreadPool<SeederJob> _jobsPool;
 

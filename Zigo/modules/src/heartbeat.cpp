@@ -4,6 +4,9 @@ HeartBeat::HeartBeat(const char *username, const char * hostname, uint16_t port,
   _currentOperation = Pinging;
   _resultState = Steady;
 
+  _connectedCallback = NULL;
+  _connectionParent = NULL;
+
   pthread_condattr_init(&_timerAttr);
   pthread_condattr_setclock(&_timerAttr, CLOCK_MONOTONIC);
 
@@ -15,6 +18,7 @@ HeartBeat::HeartBeat(const char *username, const char * hostname, uint16_t port,
   memset(_results, 0, MAX_READ_SIZE);
 
   _state = Disconnected;
+  printf("%s\n%s\n%d\n%d\n", username, hostname, (int)port, (int)serverPort);
 
 }
 
@@ -32,6 +36,10 @@ void HeartBeat::run() {
   if (_establishConnection() < 0) {
     printf("Connection failed!\n");
     return;
+  }
+
+  if (_connectedCallback) {
+      (*_connectedCallback)(this, _connectionParent);
   }
 
   while(1) {
@@ -93,6 +101,7 @@ void HeartBeat::run() {
       _waitTimer(PINGING_TIME);
 
     } else if (currentOperation == Querying) {
+      lock();
       _resultState = Fetching;
       Message queryMessage(Query, _queryParam, _id, DEFAULT_MESSAGE_ID);
       sentBytes = _sendMessage(queryMessage); //send message to server
@@ -112,11 +121,19 @@ void HeartBeat::run() {
       }
       strcpy(_results, resultReply.getBody());
       _resultState = Ready;
+      ThreadCallback listener = _resultsListener;
+      void *parent = _resultsParent;
+      _resultsListener = NULL;
+      _resultsParent = NULL;
+
+      fflush(stdout);
+      if(listener) {
+          (*listener)(this, parent);
+      }
       resume();
-      lock();
       _currentOperation = Pinging;
-      unlock();
       _state = Connected;
+      unlock();
     }
   }
   _resultState = Failed;
@@ -133,6 +150,8 @@ void HeartBeat::queryOnline() {
 
 void HeartBeat::queryUsername(char *username) {
   lock();
+  memset(_searchParam, 0, 128);
+  strcpy(_searchParam, username);
   _currentOperation = Querying;
   sprintf(_queryParam, "username=%s", username);
   unlock();
@@ -141,6 +160,8 @@ void HeartBeat::queryUsername(char *username) {
 
 void HeartBeat::queryId(char *id) {
   lock();
+  memset(_searchParam, 0, 128);
+  strcpy(_searchParam, id);
   _currentOperation = Querying;
   sprintf(_queryParam, "id=%s", id);
   unlock();
@@ -153,12 +174,21 @@ void HeartBeat::queryRecent() {
   unlock();
   _wakeTimer();
 }
+
+const char *HeartBeat::getSearchParam() {
+    return _searchParam;
+}
 bool HeartBeat::isConnected() const{
   return (_state == Connected);
 }
 
 bool HeartBeat::isConnecting() const {
-  return (_state == Connecting);
+    return (_state == Connecting);
+}
+
+void HeartBeat::setConnectedCallback(ThreadCallback callback, void *parent) {
+    _connectedCallback = callback;
+    _connectionParent = parent;
 }
 
 bool HeartBeat::reset() {

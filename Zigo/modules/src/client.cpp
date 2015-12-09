@@ -6,6 +6,13 @@ Client::Client(const char *username, const char * hostname, uint16_t port, uint1
   strcpy(_username, username);
   memset(_id, 0, 128);
 
+  _resultsListener = NULL;
+  _resultsParent = NULL;
+
+  _progressListener = NULL;
+  _progressParent = NULL;
+
+
   if (!File::exists(PUBLIC_KEY_PATH) || !File::exists(PRIVATE_KEY_PATH)) {
     printf("Generating RSA key pair!\n");
     Crypto::generateKeyPair(PRIVATE_KEY_PATH, PUBLIC_KEY_PATH);
@@ -135,7 +142,7 @@ int Client::execute() {
   uint32_t maxRetry = Settings::getInstance().getRetryTimes();
   uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
 
-  if(activeOperation == RSARequest || activeOperation == StegKey) {
+  if(activeOperation == RSARequest || activeOperation == StegKey || activeOperation == KeysRequest) {
     Message requestMessage = Message(Request, _queryParam, _id, DEFAULT_MESSAGE_ID);
     while(!success && retry < (int)maxRetry) { //try to re-send packet if failed within MAX_RETRY
 
@@ -201,6 +208,18 @@ int Client::execute() {
 
     strcpy(_results, reply);
 
+    ThreadCallback listener = _resultsListener;
+    void *parent = _resultsParent;
+    _resultsListener = NULL;
+    _resultsParent = NULL;
+
+    printf("Callback()\n");
+    fflush(stdout);
+    if(listener) {
+        printf("Not null\n");
+        (*listener)(this, parent);
+    }
+
     _resultState = Ready;
     _currentOperation = Idle;
     resume();
@@ -208,20 +227,31 @@ int Client::execute() {
     char readBuff[1024];
     memset(readBuff, 0, 1024);
     FileState fileState;
+    long currentSize;
     File *localFile = File::open(_queryParam, O_RDONLY);
-    if (localFile->getFd() < 0)
-    throw FileOpenException();
-    File *remoteFile = File::ropen(_clientSocket, _extraParam, _id, _extraParam, AttemptCreate, &fileState);
-
+    printf("FD: %d\n", localFile->getFd());
+    if (localFile->getFd() < 0) {
+        throw FileOpenException();
+    }
+    File *remoteFile = File::ropen(_clientSocket, _extraParam, _id, _extraParam, AttemptCreate, &fileState, &currentSize);
+    printf("Current size: %ld\n", currentSize);
+    fflush(stdout);
+    if (currentSize > 0) {
+      printf("Resuming..\n");
+      localFile->setOffset((off_t) currentSize);
+    }
     memset(_results, 0, MAX_READ_SIZE);
     sprintf(_results, "%d", (int)fileState);
     if(fileState == Locked) {
       printf("Locked!\n");
       throw FileLockedException();
     } else if (fileState != Opened) {
-      printf("Remote!\n");
+      printf("Remote! %d\n", (int)fileState);
       throw FileOpenException();
     }
+
+    ProgressCallback listener = _progressListener;
+    void *progressParent = _progressParent;
 
     off_t localOffset, remoteOffset;
     while(!localFile->isEOF()) {
@@ -231,10 +261,13 @@ int Client::execute() {
       remoteOffset = remoteFile->getOffset();
       float percentage = 100.0 * (float)remoteOffset/(float)localFile->getFileSize();
       if (percentage > 100.0)
-      percentage = 100.0;
-      printf("Writing %f%%..\n", percentage);
+        percentage = 100.0;
+      printf("%f%%\n", percentage);
+      if(listener)
+          (*listener)(percentage, progressParent);
+
       if (!localFile->isEOF())
-      if (localOffset != remoteOffset)
+        if (localOffset != remoteOffset)
       localFile->setOffset(remoteFile->getOffset());
     }
 
@@ -242,6 +275,9 @@ int Client::execute() {
 
     localFile->close();
     remoteFile->close();
+
+    _progressListener = NULL;
+    _progressParent = NULL;
 
     _resultState = Ready;
     _currentOperation = Idle;
@@ -285,13 +321,22 @@ int Client::execute() {
       float percentage = 100.0 * (float)remoteOffset/(float)localFile->getFileSize();
       if (percentage > 100.0)
         percentage = 100.0;
-      printf("Writing %f%%..\n", percentage);
+
       if (!localFile->isEOF())
         if (localOffset != remoteOffset)
           localFile->setOffset(remoteFile->getOffset());
     }
 
     printf("File state: %d\ns", (int)Opened);
+
+    ThreadCallback listener = _resultsListener;
+    void *parent = _resultsParent;
+    _resultsListener = NULL;
+    _resultsParent = NULL;
+
+    if(listener) {
+        (*listener)(this, parent);
+    }
 
     localFile->close();
     remoteFile->close();
@@ -307,7 +352,7 @@ int Client::execute() {
     FileState fileState;
     File *localFile = File::open(_queryParam, O_RDONLY);
     if (localFile->getFd() < 0)
-    throw FileOpenException();
+        throw FileOpenException();
     File *remoteFile = File::ropen(_clientSocket, _extraParam, _id, _extraParam, AttemptCreate, &fileState);
 
     memset(_results, 0, MAX_READ_SIZE);
@@ -331,7 +376,7 @@ int Client::execute() {
       float percentage = 100.0 * (float)remoteOffset/(float)localFile->getFileSize();
       if (percentage > 100.0)
       percentage = 100.0;
-      printf("Writing %f%%..\n", percentage);
+
       if (!localFile->isEOF())
       if (localOffset != remoteOffset)
       localFile->setOffset(remoteFile->getOffset());
@@ -341,6 +386,16 @@ int Client::execute() {
 
     localFile->close();
     remoteFile->close();
+
+    ThreadCallback listener = _resultsListener;
+    void *parent = _resultsParent;
+    _resultsListener = NULL;
+    _resultsParent = NULL;
+
+    fflush(stdout);
+    if(listener) {
+        (*listener)(this, parent);
+    }
 
     _resultState = Ready;
     _currentOperation = Idle;
@@ -367,6 +422,18 @@ int Client::execute() {
 
     strcpy(_results, reply);
     printf("Reply: %s\n", reply);
+
+    ThreadCallback listener = _resultsListener;
+    void *parent = _resultsParent;
+    _resultsListener = NULL;
+    _resultsParent = NULL;
+
+    printf("Callback()\n");
+    fflush(stdout);
+    if(listener) {
+        printf("Not null\n");
+        (*listener)(this, parent);
+    }
 
     _resultState = Ready;
     _currentOperation = Idle;
@@ -398,6 +465,18 @@ int Client::execute() {
     }
 
     strcpy(_results, "1");
+
+    ThreadCallback listener = _resultsListener;
+    void *parent = _resultsParent;
+    _resultsListener = NULL;
+    _resultsParent = NULL;
+
+    printf("Callback()\n");
+    fflush(stdout);
+    if(listener) {
+        printf("Not null\n");
+        (*listener)(this, parent);
+    }
 
     _resultState = Ready;
     _currentOperation = Idle;
@@ -431,7 +510,7 @@ int Client::fetchResults(char *buf) {
   unlock();
   if (currentState != Ready){
     if(currentOperation == Pinging)
-    throw InvalidOperationContext();
+        throw InvalidOperationContext();
     pause(&_fetchingCvLock);
   }
   _resultState = Steady;
@@ -441,10 +520,24 @@ int Client::fetchResults(char *buf) {
   return 0;
 }
 
+const char *Client::getUsername() {
+    return _username;
+}
+
+const char *Client::getAddress() {
+    return _hostname;
+}
+
+uint16_t Client::getConnectionPort() {
+    return _connectionPort;
+}
+
 void Client::sendFile(const char *filename, const char *fileId) {
   lock();
   setCommand((char *) filename);
   setExtra((char *) fileId);
+  printf("File name: %s\n", filename);
+  printf("File ID: %s\n", fileId);
   _currentOperation = SendFile;
   unlock();
   start();
@@ -477,9 +570,28 @@ void Client::updateImage(const char *fileId, const char *newCount) {
   start();
 }
 
+void Client::registerListener(ThreadCallback listener, void *parent) {
+    _resultsListener = listener;
+    _resultsParent = parent;
+}
+
+void Client::registerUpdateListener(ProgressCallback listener, void *parent) {
+    _progressListener = listener;
+    _progressParent = parent;
+}
+
 void Client::setPeerRSA(char *rsa) {
   memset(_peerRSA, 0, 2048);
   strcpy(_peerRSA, rsa);
+}
+
+void Client::setClientId(char *id) {
+    memset(_clientId, 0, 128);
+    strcpy(_clientId, id);
+}
+
+const char *Client::getClientId() {
+    return _clientId;
 }
 
 
@@ -495,6 +607,14 @@ void Client::queryRSA() {
   lock();
   _currentOperation = RSARequest;
   setCommand("rsa");
+  unlock();
+  start();
+}
+
+void Client::queryKeys() {
+  lock();
+  _currentOperation = RSARequest;
+  setCommand("keys");
   unlock();
   start();
 }

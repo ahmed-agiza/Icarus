@@ -13,12 +13,13 @@ enum Operation {
   Querying = 2,
   RSARequest = 3,
   StegKey = 4,
-  OpenFile = 5,
-  SendFile = 6,
-  SendTempFile = 7,
-  SendEncryptedFile = 8,
-  UpdateImageViews = 9,
-  PingServer = 10
+  KeysRequest = 5,
+  OpenFile = 6,
+  SendFile = 7,
+  SendTempFile = 8,
+  SendEncryptedFile = 9,
+  UpdateImageViews = 10,
+  PingServer = 11
 };
 
 enum State {
@@ -27,6 +28,9 @@ enum State {
   Ready = 2,
   Failed = 3
 };
+
+
+typedef void (*ProgressCallback)(float, void*);
 
 
 class Client : public Thread {
@@ -40,6 +44,7 @@ protected:
   char _publicRSA[2048];
   char _privateRSA[2048];
   char _id[128];
+  char _clientId[128];
   char _peerRSA[2048];
 
   bool _executed;
@@ -60,6 +65,13 @@ protected:
   Message _getReplyTimeout(time_t seconds = 0, suseconds_t mseconds = 0);
   int _establishConnection(); //connect to server
   ssize_t _sendMessage(Message message);
+
+  ThreadCallback _resultsListener;
+  void *_resultsParent;
+
+  ProgressCallback _progressListener;
+  void *_progressParent;
+
 public:
   Client(const char *username, const char * hostname, uint16_t port, uint16_t serverPort);
   bool reset();
@@ -70,9 +82,15 @@ public:
 
   virtual int fetchResults(char *buf);
 
+  const char *getUsername();
+  const char *getAddress();
+  uint16_t getConnectionPort();
+
+
   void setCommand(char *command);
   void queryRSA();
   void queryStegKey();
+  void queryKeys();
 
   const char *getId() const;
 
@@ -84,8 +102,15 @@ public:
   void pingServer();
   void updateImage(const char *fileId, const char *newCount);
 
+  void registerListener(ThreadCallback listener, void *parent);
+
+  void registerUpdateListener(ProgressCallback listener, void *parent);
+
   void setExtra(char *extra);
   void setPeerRSA(char *rsa);
+
+  void setClientId(char *id);
+  const char *getClientId();
 
 
   ~Client();

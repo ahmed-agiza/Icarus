@@ -39,7 +39,8 @@ File *File::open(const char *pathname, int flags, mode_t mode) {
   return file;
 }
 File *File::ropen(UDPSocket *socket, char *fileId, const char *userId,
-                  char *messageId, FileMode mode, FileState *state) {
+                  char *messageId, FileMode mode, FileState *state, long *currentFileSize) {
+
   File *file = new File;
   file->_socket = socket;
   file->_isLockOwner = false;
@@ -61,12 +62,17 @@ File *File::ropen(UDPSocket *socket, char *fileId, const char *userId,
     throw InvalidReplyException();
   }
 
-  int fdReply, stateReply;
+  int fdReply, stateReply; long currentSize;
 
-  if (sscanf(replyMessage.getBody(), "%d;%d;", &fdReply, &stateReply) != 2) {
-    printf("Invalid reply: %s\n", replyMessage.getBody());
+  if (sscanf(replyMessage.getBody(), "%d;%d;%ld;", &fdReply, &stateReply, &currentSize) != 3) {
+    printf("--Invalid reply: %s\n", replyMessage.getBody());
     throw InvalidReplyException();
   }
+
+  if(currentFileSize)
+    *currentFileSize = currentSize;
+
+  file->_offset = currentSize;
 
   strcpy(file->_fileId, fileId);
 
@@ -109,13 +115,27 @@ int File::remove(const char *filePath) {
 
 bool File::isLocked(const char *filename) {
   int fd = ::open(filename, O_RDONLY);
-  if(!flock(fd, LOCK_EX)) {
+  if(!flock(fd, LOCK_EX|LOCK_NB)) {
     ::close(fd);
     return false;
   }
+
   flock(fd, LOCK_UN);
   ::close(fd);
   return true;
+}
+
+void File::setLockOwner(const char *owner) {
+  strcpy(_lockOwner, owner);
+}
+
+bool File::isLockOwner(const char *owner) const{
+  return (strcmp(_lockOwner, owner) == 0);
+}
+
+int File::forceUnlock() {
+  _isLocked = false;
+  return flock(_fd, LOCK_UN);
 }
 
 
@@ -431,6 +451,84 @@ const char *File::getFilePath() const {
 
 int File::getFd() {
   return _fd;
+}
+
+
+vector<FileInfo> File::getAllFiles(FileType type) {
+  DIR *dir;
+  vector<FileInfo> vecFiles;
+  vector<FileInfo> tempFiles;
+  char path[2048];
+  memset(path, 0, 2048);
+  strcat(path, DIR_STORAGE);
+
+  dir = opendir (path);
+  struct dirent *ent;
+
+  if (dir == NULL) printf("Could not open directory.\n");
+  /* print all the files and directories within directory */
+  while ((ent = readdir (dir)) != NULL) {
+    if(ent->d_name[0] == '.')
+      continue;
+    if(ent->d_type == DT_REG) {
+      //printf ("File Name: %s\n", ent->d_name);
+      continue;
+    }
+    printf("Dir: %s\n", ent->d_name);
+    getUserFiles(ent->d_name, type, tempFiles);
+    for(unsigned int i = 0; i < tempFiles.size(); i++)
+        vecFiles.push_back(tempFiles.at(i));
+  }
+  closedir (dir);
+  return vecFiles;
+}
+
+void File::getUserFiles(char* userId, FileType type, vector<FileInfo>& vecFiles) {
+  DIR *dir;
+  FileInfo fileInfo;
+  char username[128];
+  char fileId[128];
+  char path[2048];
+  memset(username, 0, 128);
+  memset(fileId, 0, 128);
+  memset(path, 0, 2048);
+
+  if(type == Buffer)
+      strcat(path, DIR_BUFFER);
+  else
+      strcat(path, DIR_STORAGE);
+
+  strcat(path, userId);
+  if(type == Receive)
+      strcat(path, "/recv");
+  else if(type == Send)
+      strcat(path, "/sent");
+
+  dir = opendir (path);
+  struct dirent *ent;
+  printf("Current Path: %s\n", path);
+  fflush(stdout);
+  if (dir == NULL) {
+      perror("Could not open directory.\n");
+      return;
+  }
+
+  /* print all the files and directories within directory */
+  while ((ent = readdir (dir)) != NULL) {
+    if(ent->d_name[0] == '.')
+      continue;
+    if(ent->d_type == DT_REG) {
+      sscanf(ent->d_name, "%[^-]%*c%s", username, fileId);
+      strcpy(fileInfo.filePath, path);
+      strcat(fileInfo.filePath, "/");
+      strcat(fileInfo.filePath, ent->d_name);
+      strcpy(fileInfo.fileId, fileId);
+      strcpy(fileInfo.userId, userId);
+      strcpy(fileInfo.recepientId, username);
+      vecFiles.push_back(fileInfo);
+    }
+  }
+  closedir (dir);
 }
 
 File::~File() {

@@ -14,7 +14,7 @@ Server::Server(uint16_t listenPort):_listenPort(listenPort), _terminated(false),
   memset(_publicRSA, 0, 2048);
   memset(_privateRSA, 0, 2048);
   memset(_stegKey, 0, 2048);
-  Crypto::generateRandomString(_stegKey, 128);
+
   publicKeyFile->read(_publicRSA, 2048);
   privateKeyFile->read(_privateRSA, 2048);
   publicKeyFile->close();
@@ -81,7 +81,12 @@ const char *Server::getPublicRSA() {
   return _publicRSA;
 }
 const char *Server::getPrivateRSA() {
-  return _privateRSA;
+    return _privateRSA;
+}
+
+void Server::setStegKey(char *key) {
+    memset(_stegKey, 0, 2048);
+    strcpy(_stegKey, key);
 }
 
 void Server::serveRequest(Message  &request) {

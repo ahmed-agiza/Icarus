@@ -40,6 +40,7 @@ void Job::handleRemoteFile(Message &request) {
     sprintf(filePath, "storage/%s/recv", request.getOwnerId());
     File::createDirIfNotExists(filePath);
     sprintf(filePath, "%s/%s", filePath, fileId);
+    printf("Mode: %d\n", (int)mode);
     if (mode == ReadOnly) {
       if (!File::exists(filePath)) {
         sprintf(replyMessage, "-1;%d;", (int) Noent);
@@ -48,34 +49,40 @@ void Job::handleRemoteFile(Message &request) {
         return;
       }
     }
-    if (mode == AttemptCreate) {
-      printf("AttemptCreate: %d\n", (int)File::exists(filePath));
-      if (File::exists(filePath)) {
-        sprintf(replyMessage, "-1;%d;", (int) AlreadyExists);
-        Message existsMessage(Reply, replyMessage, _id, fileId);
-        _handlerSocket->sendMessage(existsMessage);
-        return;
-      }
-    } else if (File::exists(filePath)) {
+    File *file;
+    long currentSize = 0;
+    if (File::exists(filePath)) {
+      printf("!\n");
       if (File::isLocked(filePath)) {
         sprintf(replyMessage, "-1;%d;", (int) Locked);
         Message lockedMessage(Reply, replyMessage, _id, fileId);
         _handlerSocket->sendMessage(lockedMessage);
         return;
+      } else {
+        printf("Exists!\n");
+        File *tempFile = File::open(filePath, O_RDONLY);
+        printf("Opened %d\n", tempFile->getFd());
+        currentSize = tempFile->getFileSize();
+        tempFile->close();
       }
     }
-    File *file;
+    printf("Current size: %ld", currentSize);
     if (mode == ReadOnly)
       file = File::open(filePath, O_RDONLY);
     else {
       file = File::open(filePath, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
-      file->lock();
+      printf("Current size %ld", currentSize);
+      file->setOffset(currentSize);
+      //file->lock();
+      file->setLockOwner(request.getOwnerId());
     }
     int fd = file->getFd();
     if (fd < 0)
       throw FileOpenException();
     _client->addFile(fd, file);
-    sprintf(replyMessage, "%d;%d;", fd, (int) Opened);
+    sprintf(replyMessage, "%d;%d;%ld;", fd, (int) Opened, currentSize);
+    printf("Reply: %s\n", replyMessage);
+    fflush(stdout);
     Message fdReply(Reply, replyMessage, _id, fileId);
     _handlerSocket->sendMessage(fdReply);
 
@@ -191,6 +198,7 @@ void Job::handleRemoteFile(Message &request) {
 }
 
 int Job::_updateImageCount(char *fileDir, char *filePath, int newCount) {
+  printf("Update: %s\n%s\n%d\n%s\n", fileDir, filePath, newCount, (char *)getStegKey());
   char buf[256], newBuf[256];
   int rc = Steganography::getImageData(fileDir, filePath, buf, sizeof(buf), (char *)getStegKey());
   if(rc)
@@ -311,6 +319,8 @@ void Job::run() {
         replySize = sprintf(reply, "%s", getServerRSA());
       } else if (strcmp(request.getBody(), "steg") == 0) {
         replySize = sprintf(reply, "%s", getStegKey());
+      } else if (strcmp(request.getBody(), "keys") == 0) {
+        replySize = sprintf(reply, "%s;%s;", getStegKey(), getServerRSA());
       } else {
         replySize = sprintf(reply, "You sent: %s", request.getBody());
       }

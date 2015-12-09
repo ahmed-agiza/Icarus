@@ -71,14 +71,17 @@ int Steganography::encryptImage(const char *parentPath, const char *embeddedFile
   sprintf(encryptedFileDataPath, "%s.dat", encryptedFilePath);
   sprintf(tempFile, "%s.temp", encryptedFilePath);
   File *dataFile = File::open(encryptedFileDataPath, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+
   dataFile->write(extraData, strlen(extraData));
 
   int dataEmbeddingRc = _embedFile(encryptedFileDataPath, embeddedFile, tempFile, key);
   if (dataEmbeddingRc) {
     return dataEmbeddingRc;
   }
+
   dataFile->remove();
   delete dataFile;
+  
   int rc = _embedFile(tempFile, coverFile, encryptedFilePath, key, createNewFile);
   File::remove(tempFile);
   return rc;

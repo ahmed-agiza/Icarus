@@ -10,11 +10,19 @@ using std::endl;
 
 int main(int argc, char *argv[])
 {
-    char buf[1024];
-    File::getWorkingDirectory(buf, 1024);
-    qDebug() << buf << endl;
+
+    if (argc < 4) {
+        fprintf(stderr, "Usage %s <ServerPort> <SeederIP> <SeederPort>.\n", argv[0]);
+        exit(1);
+    }
+
+    uint16_t serverPort = (uint16_t) atoi(argv[1]);
+    const char *seederIP = argv[2];
+    uint16_t seederPort = (uint16_t) atoi(argv[3]);
+
+
     QApplication a(argc, argv);
-    MainWindow w;
+    MainWindow w(serverPort, (char *)seederIP, seederPort);
     w.show();
 
     /*try {

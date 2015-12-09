@@ -36,7 +36,11 @@ SOURCES += main.cpp\
     modules/src/steganography.cpp \
     modules/src/thread.cpp \
     modules/src/thread_pool.cpp \
-    modules/src/udp_socket.cpp
+    modules/src/udp_socket.cpp \
+    modules/src/client_manager.cpp \
+    dialogeditimage.cpp \
+    dialognewimg.cpp \
+    dialogquery.cpp
 
 HEADERS  += mainwindow.h \
     modules/include/client.h \
@@ -58,6 +62,13 @@ HEADERS  += mainwindow.h \
     modules/include/thread.h \
     modules/include/thread_pool.h \
     modules/include/udp_socket.h \
-    permission.h
+    permission.h \
+    modules/include/client_manager.h \
+    dialogeditimage.h \
+    dialognewimg.h \
+    dialogquery.h
 
-FORMS    += mainwindow.ui
+FORMS    += mainwindow.ui \
+    dialogquery.ui \
+    dialognewimg.ui \
+    dialogeditimage.ui

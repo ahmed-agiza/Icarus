@@ -10,6 +10,13 @@ public:
 	}
 };
 
+class InvalidMessageFormat : public NetworkException {
+public:
+	virtual const char* what() const throw() {
+		return "Invalid message format.";
+	}
+};
+
 
 class SettingsLoadException : public NetworkException {
 public:
@@ -22,6 +29,13 @@ class FileOpenException : public NetworkException {
 public:
 	virtual const char* what() const throw() {
 		return "Failed to open the file.";
+	}
+};
+
+class FileLockedException : public NetworkException {
+public:
+	virtual const char* what() const throw() {
+		return "The selected file is currently locked.";
 	}
 };
 

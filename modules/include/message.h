@@ -19,28 +19,31 @@ enum MessageType {
   Request = 0, // Q
   Reply = 1, // R
   Connect = 2, // C
-  Accept = 3, // A
+  Accept = 3, // Y
   Decline = 4, // D
-  Verify = 5, //V
-  Ping = 6, // P
-  Pong = 7, //G
-  Query = 8, //U
-  Terminate = 9,
-  Acknowledge = 10,
-  Packet = 11, //F
-  Open = 12, //O
-  Close = 13, //X
-  Read = 14, //B
-  Write = 15, //W
-  Lseek = 16, //L
-  Eof = 17, //E
-  Information = 18, //I
+  Auth = 5, //Z
+  Verify = 6, //V
+  Ping = 7, // P
+  Pong = 8, //G
+  Query = 9, //U
+  Terminate = 10, //T
+  Acknowledge = 11, //A
+  Packet = 12, //F
+  Open = 13, //O
+  Close = 14, //X
+  Read = 15, //B
+  Write = 16, //W
+  Lseek = 17, //L
+  Eof = 18, //E
+  Information = 19, //I
+  UpdateImage = 20, //H
   Unknown = -1 // N
 };
 
 enum Encoding {
   NoEncoding = 0,
-  Base64 = 1
+  Base64 = 1,
+  RSAEncryption = 2
 };
 
 class Message {

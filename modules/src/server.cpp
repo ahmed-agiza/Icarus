@@ -13,6 +13,8 @@ Server::Server(uint16_t listenPort):_listenPort(listenPort), _terminated(false),
   memset(_id, 0, 128);
   memset(_publicRSA, 0, 2048);
   memset(_privateRSA, 0, 2048);
+  memset(_stegKey, 0, 2048);
+  Crypto::generateRandomString(_stegKey, 128);
   publicKeyFile->read(_publicRSA, 2048);
   privateKeyFile->read(_privateRSA, 2048);
   publicKeyFile->close();
@@ -62,7 +64,8 @@ void Server::listen() {
     }
 
     char newRequestMessage[LOG_MESSAGE_LENGTH];
-    sprintf(newRequestMessage, "Request from %s(%d): %s", _serverSocket->getPeerName(), _serverSocket->getPortNumber(), request.getBody());
+    //sprintf(newRequestMessage, "Request from %s(%d): %s", _serverSocket->getPeerName(), _serverSocket->getPortNumber(), request.getBody());
+    sprintf(newRequestMessage, "Request from %s(%d)", _serverSocket->getPeerName(), _serverSocket->getPortNumber());
     Logger::info(newRequestMessage);
     fflush(stdout);
     serveRequest(request);
@@ -70,23 +73,33 @@ void Server::listen() {
   Logger::info("Server terminated!");
 }
 
+const char *Server::getStegKey() {
+  return _stegKey;
+}
+
+const char *Server::getPublicRSA() {
+  return _publicRSA;
+}
+const char *Server::getPrivateRSA() {
+  return _privateRSA;
+}
+
 void Server::serveRequest(Message  &request) {
-
-  char portReply[32], username[128], rsa[2048], verificationToken[64], encryptedToken[256];
+  char portReply[32], username[128], rsa[2048], verificationToken[65], encryptedToken[256], serverPortStr[64];
+  uint16_t serverPort;
   uint32_t seederReplyTo = Settings::getInstance().getServerReplyTimeout();
-
-  char *clientAddrName = (char *)inet_ntoa(_serverSocket->getPeerAddress().sin_addr);
-  (void)clientAddrName;
 
   char *connectionStr = new char[strlen(request.getBody()) + 1];
   strcpy(connectionStr, request.getBody());
-  if (sscanf(connectionStr, "%[^;]%*c%2048c", username, rsa) != 2) {
+  if (sscanf(connectionStr, "%[^;]%*c%[^;]%*c%2048c", username, serverPortStr, rsa) != 3) {
     char invalidConnectionString[LOG_MESSAGE_LENGTH];
     sprintf(invalidConnectionString, "Invalid connection string %s", connectionStr);
     Logger::error(invalidConnectionString);
     delete connectionStr;
     return;
   }
+
+  serverPort = (uint16_t) atoi(serverPortStr);
 
   Crypto::generateRandomString(verificationToken, 64);
 
@@ -139,16 +152,19 @@ void Server::serveRequest(Message  &request) {
 
     Job *job = dynamic_cast<Job *>(_jobsPool.acquire());
     job->setId(_id);
-    job->setParent(this);
-    job->setDoneCallback(_threadDoneWrapper);
+    job->addDoneCallback(_threadDoneWrapper, this);
+    job->setServerRSA(_publicRSA);
+    job->setRSA(_privateRSA);
+    job->setStegKey(_stegKey);
 
     ClientNode *client = _addClient(connectionStr, clientPort, job);
     client->setSocket(handlerSocket);
     client->setUsername(username);
+    client->setServerPort(serverPort);
+
 
 
     job->setClient(client);
-    job->setSharedData((bool *)&_terminated);
 
     if(job->start()) {
       printf("Serving client..\n");

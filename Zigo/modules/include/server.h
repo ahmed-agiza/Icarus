@@ -69,6 +69,8 @@ public:
   const char *getPublicRSA();
   const char *getPrivateRSA();
 
+  void setStegKey(char *key);
+
   ~Server();
 
 

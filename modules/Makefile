@@ -1,4 +1,4 @@
-.PHONY: all server client seeder pre
+.PHONY: all server client seeder app pre
 
 BUILD_DIR = ./build
 SRC_DIR = ./src
@@ -53,9 +53,30 @@ COBJS = \
  $(OBJ_DIR)/file.o\
  $(OBJ_DIR)/peer.o\
  $(OBJ_DIR)/steganography.o\
+ $(OBJ_DIR)/client_manager.o\
  $(OBJ_DIR)/client_main.o
 
-BINARIES = $(BUILD_DIR)/server $(BUILD_DIR)/client $(BUILD_DIR)/seeder
+APPOBJS = \
+	$(OBJ_DIR)/thread.o\
+  $(OBJ_DIR)/thread_pool.o\
+  $(OBJ_DIR)/udp_socket.o\
+  $(OBJ_DIR)/heartbeat.o\
+  $(OBJ_DIR)/message.o\
+  $(OBJ_DIR)/client.o\
+  $(OBJ_DIR)/logger.o\
+  $(OBJ_DIR)/settings.o\
+  $(OBJ_DIR)/crypto.o\
+  $(OBJ_DIR)/file.o\
+  $(OBJ_DIR)/peer.o\
+  $(OBJ_DIR)/job.o\
+  $(OBJ_DIR)/server.o\
+  $(OBJ_DIR)/client_node.o\
+  $(OBJ_DIR)/steganography.o\
+	$(OBJ_DIR)/client_manager.o\
+	$(OBJ_DIR)/app.o
+
+
+BINARIES = $(BUILD_DIR)/server $(BUILD_DIR)/client $(BUILD_DIR)/seeder $(BUILD_DIR)/app
 CC = g++
 DEBUG = -g
 LIBS = -pthread -lssl -lcrypto -ldl
@@ -67,8 +88,12 @@ ifeq ($(STEGHIDE_EXISTS),)
 	$(error cannot locate steghide)
 	exit 1;
 endif
+	$(ulimit -c unlimited)
 
-all : pre clean server client seeder
+all : pre clean server client seeder app
+
+app: pre $(APPOBJS)
+	$(CC) $(APPOBJS) -o $(BUILD_DIR)/app $(LFLAGS)
 
 server : pre $(SOBJS)
 	$(CC) $(SOBJS) -o $(BUILD_DIR)/server $(LFLAGS)
@@ -122,4 +147,5 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	$(CC) -c $< -o $@ $(LFLAGS)
 
 clean:
-	rm -f $(BINARIES) *.o $(BUILD_DIR)/* $(OBJ_DIR)/*.o $(BUILD_DIR)/core $(OBJ_DIR)/core
+	rm -f $(BINARIES) *.o $(OBJ_DIR)/*.o $(BUILD_DIR)/core $(OBJ_DIR)/core
+	rm -rf $(BUILD_DIR)/storage

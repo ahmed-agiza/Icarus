@@ -1,7 +1,8 @@
 #include "file.h"
 
 File::File() {
-
+  _fd = -1;
+  _fileSize = 0;
 }
 
 File *File::open(const char *pathname, int flags) {
@@ -13,25 +14,40 @@ File *File::open(const char *pathname, int flags) {
   file->_isOpen = true;
   file->_offset = 0;
   file->_fd = ::open(pathname, flags);
+  if (file->_fd > 0)
+    file->_fileSize = lseek(file->_fd, 0, SEEK_END);
+  lseek(file->_fd, 0, SEEK_SET);
   file->_isEOF = false;
+  file->_isLockOwner = false;
   return file;
 }
 
 File *File::open(const char *pathname, int flags, mode_t mode) {
   File *file = new File;
+  memset(file->_filePath, 0, PATH_MAX);
+  strcpy(file->_filePath, pathname);
   file->_isLocal = true;
   file->_socket = 0;
   file->_fd = ::open(pathname, flags, mode);
+  if (file->_fd > 0)
+    file->_fileSize = lseek(file->_fd, 0, SEEK_CUR);
+  lseek(file->_fd, 0, SEEK_SET);
   file->_isOpen = true;
   file->_offset = 0;
   file->_isEOF = false;
+  file->_isLockOwner = false;
   return file;
 }
-File *File::ropen(UDPSocket *socket, char *fileId, const char *userId) {
+File *File::ropen(UDPSocket *socket, char *fileId, const char *userId,
+                  char *messageId, FileMode mode, FileState *state) {
   File *file = new File;
   file->_socket = socket;
+  file->_isLockOwner = false;
   strcpy(file->_userId, userId);
-  Message openMessage(Open, fileId, file->_userId, DEFAULT_MESSAGE_ID);
+  char messageBody[PATH_MAX + 130];
+  memset(messageBody, 0, PATH_MAX + 130);
+  sprintf(messageBody, "%s;%d;", fileId, (int) mode);
+  Message openMessage(Open, messageBody, file->_userId, messageId);
   ssize_t sentBytes = file->_socket->sendMessage(openMessage);
   (void) sentBytes;
 
@@ -45,10 +61,32 @@ File *File::ropen(UDPSocket *socket, char *fileId, const char *userId) {
     throw InvalidReplyException();
   }
 
-  file->_fd = atoi(replyMessage.getBody());
-  file->_isOpen = true;
-  file->_isLocal = false;
-  file->_isEOF = false;
+  int fdReply, stateReply;
+
+  if (sscanf(replyMessage.getBody(), "%d;%d;", &fdReply, &stateReply) != 2) {
+    printf("Invalid reply: %s\n", replyMessage.getBody());
+    throw InvalidReplyException();
+  }
+
+  strcpy(file->_fileId, fileId);
+
+  file->_fd = fdReply;
+  if (stateReply == Opened || stateReply == Created) {
+    file->_isOpen = true;
+    file->_isLocal = false;
+    file->_isEOF = false;
+  } else {
+    file->_isOpen = false;
+    file->_isLocal = false;
+    file->_isEOF = false;
+  }
+
+  if(state)
+    *state = (FileState)stateReply;
+
+  Message ackReply(Acknowledge, "1", file->_userId, messageId);
+  file->_socket->sendMessage(ackReply);
+
   return file;
 }
 
@@ -57,16 +95,27 @@ void File::setUserId(const char *userId) {
 }
 
 bool File::exists(const char *filename){
-    FILE *file;
-    if ((file = fopen(filename, "r"))){
-        fclose(file);
-        return 1;
-    }
-    return 0;
+  FILE *file;
+  if ((file = fopen(filename, "r"))){
+      fclose(file);
+      return 1;
+  }
+  return 0;
 }
 
 int File::remove(const char *filePath) {
   return ::remove(filePath);
+}
+
+bool File::isLocked(const char *filename) {
+  int fd = ::open(filename, O_RDONLY);
+  if(!flock(fd, LOCK_EX)) {
+    ::close(fd);
+    return false;
+  }
+  flock(fd, LOCK_UN);
+  ::close(fd);
+  return true;
 }
 
 
@@ -166,7 +215,7 @@ bool File::isEOF() const {
   return _isEOF;
 }
 
-ssize_t File::read(void *buf, size_t count) {
+ssize_t File::read(void *buf, size_t count, char *messageId) {
   if (isLocal()) {
     if (!isEOF()){
       lseek(_fd, SEEK_SET, _offset);
@@ -180,7 +229,7 @@ ssize_t File::read(void *buf, size_t count) {
   } else {
     char params[32];
     sprintf(params, "%d\n%zd", _fd, count);
-    Message readMessage(Read, params, _userId, DEFAULT_MESSAGE_ID);
+    Message readMessage(Read, params, _userId, messageId);
     printf("Params: %s\n", params);
     ssize_t sentBytes = _socket->sendMessage(readMessage);
     (void) sentBytes;
@@ -212,17 +261,29 @@ ssize_t File::read(void *buf, size_t count) {
 }
 
 
-ssize_t File::write(const void *buf, size_t count) {
+ssize_t File::write(const void *buf, size_t count, char *messageId, bool rsaEncrypted, size_t encodeLen) {
   if (isLocal()) {
     lseek(_fd, SEEK_SET, _offset);
     ssize_t writtenByes = ::write(_fd, buf, count);
-    printf("Wrote %zd", writtenByes);
     _offset += writtenByes;
     return writtenByes;
   } else {
     char params[5860];
-    sprintf(params, "%d\n%zd\n%s", _fd, count, (char *)buf);
-    Message writeMessage(Write, params, _userId, DEFAULT_MESSAGE_ID);
+    char encodedBuffer[5000];
+
+    if ((int)encodeLen < 0) {
+
+      Crypto::base64Encode(buf, count, encodedBuffer, 5000);
+    } else
+      Crypto::base64Encode(buf, encodeLen, encodedBuffer, 5000);
+    if (strlen(encodedBuffer) > 0)
+      sprintf(params, "%d\n%zd\n%s", _fd, count, (char *)encodedBuffer);
+    else
+      sprintf(params, "%d\n0\n0", _fd);
+    Message writeMessage;
+    writeMessage = Message(Write, params, _userId, messageId);
+    if (rsaEncrypted)
+      writeMessage.setEncoding(RSAEncryption);
     ssize_t sentBytes = _socket->sendMessage(writeMessage);
     (void) sentBytes;
     uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
@@ -242,22 +303,29 @@ ssize_t File::write(const void *buf, size_t count) {
   return -1;
 }
 
+long File::getFileSize() const {
+  return _fileSize;
+}
+
 const char *File::getFileId() const {
   return _fileId;
 }
 
-void File::setOffset(off_t offset) {
+bool File::isLockOwner() const {
+  return _isLockOwner;
+}
+
+void File::setOffset(off_t offset, char *messageId) {
   if (isLocal()) {
     _offset = offset;
+    _isEOF = false;
   } else {
     char seekOff[32];
     memset(seekOff, 0, 32);
     sprintf(seekOff, "%d\n%ld", _fd, (long)offset);
-    Message seekMessage(Lseek, seekOff, _userId, DEFAULT_MESSAGE_ID);
+    Message seekMessage(Lseek, seekOff, _userId, messageId);
     ssize_t sentBytes = _socket->sendMessage(seekMessage);
     (void) sentBytes;
-    printf("Offset: %ld\nSent: %s\n", (long) offset, seekOff);
-
     uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
 
     Message replyMessage = _socket->recvMessageTimeout(clientReplyTo, 0);
@@ -279,14 +347,16 @@ int File::close() {
   if (isLocal()) {
     if (_fd >= 0){
       _isOpen = false;
+      unlock();
       return ::close(_fd);
     } else
       return -1;
   } else {
     char fd[32];
+    int state;
     memset(fd, 0, 32);
     sprintf(fd, "%d", _fd);
-    printf("Closing remote file %s\nuMessage closeMessage(Close, fd)", fd);
+    printf("Closing remote file %s\nMessage closeMessage(Close, fd)\n", fd);
     fflush(stdout);
     Message closeMessage(Close, fd, _userId, DEFAULT_MESSAGE_ID);
     uint32_t clientReplyTo = Settings::getInstance().getClientReplyTimeout();
@@ -294,14 +364,17 @@ int File::close() {
     (void) sentBytes;
 
     Message replyMessage = _socket->recvMessageTimeout(clientReplyTo, 0);
-    if (replyMessage.getType() != Reply) {
+    if (replyMessage.getType() != Reply || sscanf(replyMessage.getBody(), "%*d;%d;", &state) != 1) {
       char invalidReplyMessage[LOG_MESSAGE_LENGTH];
       sprintf(invalidReplyMessage, "Invalid reply: %s", replyMessage.getBytes());
       Logger::error(invalidReplyMessage);
       throw InvalidReplyException();
     }
-    _isOpen = false;
-    return atoi(replyMessage.getBody());
+    if ((FileState)state != Closed && (FileState)state != AlreadyClosed) {
+      fprintf(stderr, "Failed to close the file %d\n", state);
+    } else
+      _isOpen = false;
+    return (int)state;
   }
   return -1;
 }
@@ -310,6 +383,41 @@ int File::remove() {
   if (isLocal()){
     const char *filePath = getFilePath();
     return remove(filePath);
+  }
+  return -1;
+}
+
+int File::rename(const char *newname) {
+  if(isLocal()) {
+    return rename(getFilePath(), newname);
+  }
+  return -1;
+}
+
+int File::rename(const char *originalName, const char *newname) {
+  return ::rename(originalName, newname);
+}
+
+bool File::isLocked() const {
+  if(isLocal()) {
+    return _isLocked;
+  } else
+    return false;
+}
+
+int File::lock() {
+  if(isLocal()) {
+    _isLocked = true;
+    _isLockOwner = true;
+    return flock(_fd, LOCK_EX);
+  }
+  return -1;
+}
+
+int File::unlock() {
+  if(isLocal() && _isLockOwner) {
+    _isLocked = false;
+    return flock(_fd, LOCK_UN);
   }
   return -1;
 }
@@ -326,5 +434,5 @@ int File::getFd() {
 }
 
 File::~File() {
-
+  unlock();
 }

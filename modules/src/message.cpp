@@ -47,7 +47,7 @@ Message::Message(MessageType type, const char *body, char *ownerId, char *messag
     strcpy(_messageId, messageId);
     sprintf(_fullId, "%s-%s", _ownerId, _messageId);
     _timestamp = (long) time(NULL);
-    if (encoding == NoEncoding)
+    if (encoding == NoEncoding || encoding == RSAEncryption)
       setBody(body);
     else if (encoding == Base64)
       Crypto::base64Encode(body, encodeLength, _body, MAX_READ_SIZE);
@@ -80,7 +80,7 @@ size_t Message::writeFile(const char *fileName) {
 }
 
 bool Message::isFileOperation() {
-  return (_type == Open || _type == Read || _type == Write || _type == Close || _type == Lseek);
+  return (_type == Open || _type == Read || _type == Write || _type == Close || _type == Lseek || _type == UpdateImage);
 }
 
 const char *Message::getBytes() const {
@@ -147,6 +147,8 @@ MessageType Message:: _letterToType(char typeLetter) const {
     return Accept;
   else if (typeLetter == 'D')
     return Decline;
+  else if (typeLetter == 'Z')
+    return Auth;
   else if (typeLetter == 'V')
     return Verify;
   else if (typeLetter == 'P')
@@ -173,6 +175,8 @@ MessageType Message:: _letterToType(char typeLetter) const {
     return Eof;
   else if (typeLetter == 'I')
     return Information;
+  else if (typeLetter == 'H')
+    return UpdateImage;
   else
     return Unknown;
 }
@@ -188,6 +192,8 @@ char Message::_typeToLetter(MessageType type) const {
     return 'Y';
   else if (type == Decline)
     return 'D';
+  else if (type == Auth)
+    return 'Z';
   else if (type == Verify)
     return 'V';
   else if (type == Acknowledge)
@@ -216,6 +222,8 @@ char Message::_typeToLetter(MessageType type) const {
     return 'E';
   else if (type == Information)
     return 'I';
+  else if (type == UpdateImage)
+    return 'H';
   else
     return 'N';
 }
@@ -228,6 +236,13 @@ void Message::setEncoding(Encoding encoding) {
 }
 Encoding Message::getEncoding() const {
   return _encoding;
+}
+
+const char *Message::getOwnerId() const {
+  return _ownerId;
+}
+const char *Message::getMessageId() const {
+  return _messageId;
 }
 
 Message::~Message() {

@@ -13,15 +13,17 @@ using std::map;
 #include "crypto.h"
 #include "thread.h"
 
+#ifndef STRING_COMPARE_OPERATOR
+#define STRING_COMPARE_OPERATOR
 struct StringCompare {
    bool operator()(char const *a, char const *b) {
-      return (strcmp(a, b) != 0);
+      return (strcmp(a, b) < 0);
    }
 };
-
+#endif
 
 class Server : public Thread {
-private:
+protected:
   UDPSocket * _serverSocket;
   uint16_t _listenPort;
 
@@ -30,6 +32,7 @@ private:
 
   char _publicRSA[2048];
   char _privateRSA[2048];
+  char _stegKey[2048];
   char _id[128];
 
   map<char *, ClientNode *, StringCompare> _clients;
@@ -61,6 +64,10 @@ public:
   size_t getJobCount() const;
 
   void serveRequest(Message &request);
+
+  const char *getStegKey();
+  const char *getPublicRSA();
+  const char *getPrivateRSA();
 
   ~Server();
 

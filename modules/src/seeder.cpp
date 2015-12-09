@@ -34,7 +34,8 @@ void Seeder::listen() {
     }
 
     char newRequestMessage[LOG_MESSAGE_LENGTH];
-    sprintf(newRequestMessage, "Request from %s(%d): %s", _seederSocket->getPeerName(), _seederSocket->getPortNumber(), request.getBody());
+    //sprintf(newRequestMessage, "Request from %s(%d): %s", _seederSocket->getPeerName(), _seederSocket->getPortNumber(), request.getBody());
+    sprintf(newRequestMessage, "Request from %s(%d)", _seederSocket->getPeerName(), _seederSocket->getPortNumber());
     Logger::info(newRequestMessage);
     fflush(stdout);
     serveRequest(request);
@@ -44,15 +45,13 @@ void Seeder::listen() {
 }
 
 void Seeder::serveRequest(Message  &request) {
-  char portReply[32], username[128], rsa[2048], verificationToken[64], encryptedToken[256];
+  char portReply[32], username[128], rsa[2048], verificationToken[65], encryptedToken[256], serverPortStr[64];
+  uint16_t serverPort;
   uint32_t seederReplyTo = Settings::getInstance().getServerReplyTimeout();
-
-  char *clientAddrName = (char *)inet_ntoa(_seederSocket->getPeerAddress().sin_addr);
-  (void)clientAddrName;
 
   char *connectionStr = new char[strlen(request.getBody()) + 1];
   strcpy(connectionStr, request.getBody());
-  if (sscanf(connectionStr, "%[^;]%*c%2048c", username, rsa) != 2) {
+  if (sscanf(connectionStr, "%[^;]%*c%[^;]%*c%2048c", username, serverPortStr, rsa) != 3) {
     char invalidConnectionString[LOG_MESSAGE_LENGTH];
     sprintf(invalidConnectionString, "Invalid connection string %s", connectionStr);
     Logger::error(invalidConnectionString);
@@ -60,6 +59,7 @@ void Seeder::serveRequest(Message  &request) {
     return;
   }
 
+  serverPort = (uint16_t) atoi(serverPortStr);
 
   Crypto::generateRandomString(verificationToken, 64);
 
@@ -108,14 +108,18 @@ void Seeder::serveRequest(Message  &request) {
     _sendMessage(portReplyMessage);
 
     SeederJob *job = dynamic_cast<SeederJob *>(_jobsPool.acquire());
-    job->setId(SEEDER_ID);
     SeederNode *client = _addClient(rsa, clientPort, job);
     client->setSocket(handlerSocket);
     client->setUsername(username);
+    client->setServerPort(serverPort);
+
+    _shared.first = (void *)&_clients;
+    _shared.second = (void *)&_recentClients;
+
     job->setClient(client);
-    job->setSharedData((SeedersMap *)&_clients);
-    job->setParent(this);
-    job->setDoneCallback(_threadDoneWrapper);
+    job->setId(SEEDER_ID);
+    job->setSharedData((void *)&_shared); // ana 3'ayrtt hna.
+    job->addDoneCallback(_threadDoneWrapper, this);
 
     if(job->start()) {
       printf("Serving client..\n");
@@ -157,10 +161,11 @@ SeederNode *Seeder::_getClient(char *id) {
 int Seeder::_removeClient(char *id) {
   if (_clients.find(id) == _clients.end())
     return -1;
-
+  printf("Erasing..\n");
   if(_clients[id])
     delete _clients[id];
   _clients.erase(id);
+  printf("Erased!\n");
 
   return 0;
 }
@@ -189,6 +194,7 @@ void *Seeder::_threadDoneWrapper(Thread *thread, void* parent) {
 }
 void Seeder::_threadDoneCallback(SeederJob *job) {
   printf("Releasing!\n");
+  _removeClient((char *) job->getClient()->getClientId());
   _jobsPool.release(job);
   printf("Done!\n");
 }

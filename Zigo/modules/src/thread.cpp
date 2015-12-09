@@ -13,7 +13,7 @@ Thread::Thread():_running(0), _constructed(false), _joinRequested(false), _done(
   if(rc)
     throw ThreadCreationException();
 }
-Thread::Thread(const Thread &other):_running(other._running), _constructed(other._constructed), _joinRequested(other._joinRequested), _done(other._done), _thread(new pthread_t), _lock(other._lock), _terminationFlag(other._terminationFlag) {
+Thread::Thread(const Thread &other):_running(other._running), _constructed(other._constructed), _joinRequested(other._joinRequested), _done(other._done), _thread(new pthread_t), _lock(other._lock), _terminationFlag(other._terminationFlag), _autoRestart(false) {
   _parents = other._parents;
   if (pthread_mutex_init(&_internalLock, NULL))
     throw MutexInitializationException();
@@ -63,10 +63,14 @@ bool Thread::_terminationRequest() const {
 void *Thread::_run(void *thisThread) {
   Thread *threadObject = (Thread *) thisThread;
   while(!threadObject->_joinRequested) {
-    pthread_mutex_lock(&threadObject->_internalLock);
-    threadObject->_constructed = true;
-    pthread_cond_wait(&threadObject->_internalCv, &threadObject->_internalLock);
-    pthread_mutex_unlock(&threadObject->_internalLock);
+    if(!threadObject->_autoRestart) {
+        pthread_mutex_lock(&threadObject->_internalLock);
+        threadObject->_constructed = true;
+        pthread_cond_wait(&threadObject->_internalCv, &threadObject->_internalLock);
+        pthread_mutex_unlock(&threadObject->_internalLock);
+    } else
+        threadObject->_autoRestart = false;
+
     if (!threadObject->_terminationRequest()) {
       threadObject->_running = 1;
       threadObject->run();
@@ -74,6 +78,7 @@ void *Thread::_run(void *thisThread) {
     }
 
     threadObject->_done = true;
+
     for(unsigned int i = 0; i < threadObject->_doneCallbacks.size(); i++)
       (*(threadObject->_doneCallbacks[i]))(threadObject, threadObject->_parents[i]);
   }
@@ -102,7 +107,12 @@ void Thread::join() {
   while(!_constructed);
   _joinRequested = true;
   if (_thread)
-    pthread_join(*_thread, NULL);
+      pthread_join(*_thread, NULL);
+}
+
+void Thread::autoRestart()
+{
+ _autoRestart = true;
 }
 
 void Thread::wait() {

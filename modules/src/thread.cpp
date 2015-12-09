@@ -2,8 +2,6 @@
 
 
 Thread::Thread():_running(0), _constructed(false), _joinRequested(false), _done(false), _thread(new pthread_t), _lock(0), _terminationFlag(0) {
-  _doneCallback = NULL;
-  _parent = NULL;
   if (pthread_mutex_init(&_internalLock, NULL))
     throw MutexInitializationException();
 
@@ -16,8 +14,7 @@ Thread::Thread():_running(0), _constructed(false), _joinRequested(false), _done(
     throw ThreadCreationException();
 }
 Thread::Thread(const Thread &other):_running(other._running), _constructed(other._constructed), _joinRequested(other._joinRequested), _done(other._done), _thread(new pthread_t), _lock(other._lock), _terminationFlag(other._terminationFlag) {
-  _doneCallback = NULL;
-  _parent = other._parent;
+  _parents = other._parents;
   if (pthread_mutex_init(&_internalLock, NULL))
     throw MutexInitializationException();
 
@@ -45,6 +42,7 @@ int Thread::start() {
 }
 
 bool Thread::reset() {
+  resetCallbacks();
   return true;
 }
 
@@ -76,10 +74,10 @@ void *Thread::_run(void *thisThread) {
     }
 
     threadObject->_done = true;
-    if (threadObject->_doneCallback)
-      (*(threadObject->_doneCallback))(threadObject, threadObject->_parent);
+    for(unsigned int i = 0; i < threadObject->_doneCallbacks.size(); i++)
+      (*(threadObject->_doneCallbacks[i]))(threadObject, threadObject->_parents[i]);
   }
-  
+
   pthread_exit(0);
 }
 
@@ -98,10 +96,6 @@ bool Thread::isRunning() const {
 
 pthread_t Thread::getId() const {
   return pthread_self();
-}
-
-void Thread::setParent(void *parent) {
-  _parent = parent;
 }
 
 void Thread::join() {
@@ -123,6 +117,14 @@ pthread_mutex_t *Thread::getMutex() const {
 }
 void Thread::setMutex(pthread_mutex_t *lock) {
   _lock = lock;
+}
+
+void Thread::setSharedData(void *ptr) {
+  _shared = ptr;
+}
+
+void *Thread::getSharedData() const {
+  return _shared;
 }
 
 int Thread::lock() const {
@@ -152,7 +154,7 @@ int Thread::lock(pthread_mutex_t *lock) const {
 
 int Thread::tryLock(pthread_mutex_t *lock) const {
   if (lock)
-    return pthread_mutex_unlock(lock);
+    return pthread_mutex_trylock(lock);
   return LOCK_FAILED;
 }
 
@@ -169,8 +171,14 @@ int Thread::resume() const {
   return pthread_cond_signal(_cv);
 }
 
-void Thread::setDoneCallback(ThreadCallback callback) {
-  _doneCallback = callback;
+void Thread::addDoneCallback(ThreadCallback callback, void *parent) {
+  _doneCallbacks.push_back(callback);
+  _parents.push_back(parent);
+}
+
+void Thread::resetCallbacks() {
+  _doneCallbacks.clear();
+  _parents.clear();
 }
 
 Thread::~Thread() {

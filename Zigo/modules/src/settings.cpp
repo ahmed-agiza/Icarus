@@ -30,6 +30,7 @@ void Settings::_initialize(){
       throw InvalidOptionException();
       break;
     }
+
     if(strcmp(OPT_RETRY_TIMES, buffer) == 0)
       _retryTimes = atoi(value);
     else if(strcmp(OPT_CLIENT_REPLY_TIMEOUT, buffer) == 0)
@@ -44,6 +45,22 @@ void Settings::_initialize(){
       _logLevel = (uint32_t)strtoull(value, NULL, 0);
     else if(strcmp(OPT_THREAD_POOL_SIZE, buffer) == 0)
       _poolSize = atoi(value);
+    else if(strcmp(OPT_CLIENT_MANAGER_CACHE, buffer) == 0)
+      _clientCache = atoi(value);
+    else if(strcmp(OPT_RECENT_PEERS, buffer) == 0)
+      _recentPeers = atoi(value);
+    else if(strcmp(OPT_LOG_MESSAGE_LENGTH, buffer) == 0)
+      _logLen = atoi(value);
+    else if(strcmp(OPT_AUTO_CREATE, buffer) == 0)
+      _autoCreate = atoi(value);
+    else if(strcmp(OPT_SEEDER_ID, buffer) == 0)
+      strcpy(_seederID, value);
+    else if(strcmp(OPT_DEFAULT_MESSAGE_ID, buffer) == 0)
+      strcpy(_defMsgId, value);
+    else if(strcmp(OPT_DIR_STORAGE, buffer) == 0)
+      strcpy(_dirStorage, value);
+    else if(strcmp(OPT_DIR_BUFFER, buffer) == 0)
+      strcpy(_dirBuffer, value);
     else{
       char invaliOptionMessage[LOG_MESSAGE_LENGTH];
       sprintf(invaliOptionMessage, "Failed to parse %s %s\n", buffer, value);
@@ -87,4 +104,33 @@ const char *Settings::getLogErrorPath() const {
 
 uint32_t Settings::getLogLevel() const {
   return _logLevel;
+}
+
+uint32_t Settings::getClientCache() const {
+  return _clientCache;
+}
+
+uint32_t Settings::getLogLen() const {
+  return _logLen;
+}
+
+uint32_t Settings::getRecentCount() const {
+  return _recentPeers;
+}
+uint32_t Settings::getAutoCreate() const {
+  return _autoCreate;
+}
+
+const char* Settings::getSeederID() const {
+  return _seederID;
+}
+const char* Settings::getDefMsgId() const {
+  return _defMsgId;
+}
+
+const char* Settings::getDirStorage() const {
+  return _dirStorage;
+}
+const char* Settings::getDirBuffer() const {
+  return _dirBuffer;
 }

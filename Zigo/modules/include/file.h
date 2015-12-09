@@ -7,6 +7,15 @@
 #include <linux/limits.h>
 #include <sys/file.h>
 #include <fcntl.h>
+#include <dirent.h>
+
+
+#define DIR_STORAGE "./storage/"
+#define DIR_BUFFER  "./buffer/"
+
+
+#include <vector>
+using std::vector;
 
 enum FileState {
   AlreadyExists = 0,
@@ -19,11 +28,25 @@ enum FileState {
   Closed = 7
 };
 
+enum FileType {
+  Buffer = 0,
+  Receive = 1,
+  Send = 2
+};
+
 enum FileMode {
   ReadOnly = 0,
   AttemptCreate = 1,
   ForceCreate = 2,
   Update = 3
+};
+
+struct FileInfo {
+  char filePath[2048];
+  char fileId[128];
+  char userId[128];
+  char recepientId[128];
+  FileType fileType;
 };
 
 class File {
@@ -33,6 +56,7 @@ class File {
   bool _isLocal;
   bool _isLocked;
   bool _isLockOwner;
+  char _lockOwner[128];
   off_t _offset;
   UDPSocket *_socket;
   bool _isOpen;
@@ -44,7 +68,7 @@ public:
   File(const File &other);
   static File *open(const char *pathname, int flags);
   static File *open(const char *pathname, int flags, mode_t mode);
-  static File *ropen(UDPSocket *socket, char *fileId, const char *userId, char *messageId = DEFAULT_MESSAGE_ID, FileMode mode = ReadOnly, FileState *state = NULL);
+  static File *ropen(UDPSocket *socket, char *fileId, const char *userId, char *messageId = DEFAULT_MESSAGE_ID, FileMode mode = ReadOnly, FileState *state = NULL, long *currentFileSize = NULL);
 
   static bool exists(const char *filename);
   static int remove(const char *filePath);
@@ -52,6 +76,11 @@ public:
   static void createDirIfNotExists(const char *dir);
   static void joinPaths(char* destination, const char* path1, const char* path2);
   static void getWorkingDirectory(char *buf, size_t bufSize);
+
+
+  void setLockOwner(const char *owner);
+  bool isLockOwner(const char *owner) const;
+  int forceUnlock();
 
   int rename(const char *newname);
   static int rename(const char *originalName, const char *newname);
@@ -76,6 +105,8 @@ public:
   int close();
   int getFd();
   bool isEOF() const;
+  static vector<FileInfo> getAllFiles(FileType type);
+  static void getUserFiles(char* userId, FileType type, vector<FileInfo>& vecFiles);
   ~File();
 };
 

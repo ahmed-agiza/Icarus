@@ -2,24 +2,33 @@
 #define SEEDER_JOB_H
 
 #include <map>
+#include <vector>
+using std::vector;
 using std::map;
+
 
 
 #include "thread.h"
 #include "udp_socket.h"
 #include "seeder_node.h"
 
+#ifndef STRING_COMPARE_OPERATOR
+#define STRING_COMPARE_OPERATOR
 struct StringCompare {
    bool operator()(char const *a, char const *b) {
-      return (strcmp(a, b) != 0);
+      return (strcmp(a, b) < 0);
    }
 };
+#endif
+
+#define RECENT_PEERS 5
 
 typedef map<char *, SeederNode *, StringCompare> SeedersMap;
+typedef vector<SeederNode *> RecentClients;
 
 class SeederJob : public Thread {
   SeederNode *_client;
-  void *_shared;
+  SharedPair *_shared;
   char _id[128];
 public:
   SeederJob();
@@ -33,10 +42,6 @@ public:
 
   SeederNode *getClient() const;
   void setClient(SeederNode *);
-
-  //TO BE MERGED WITH THE THREAD CLASS!!!!!!!!!!!!
-  void setSharedData(void *ptr);
-  void *getSharedData() const;
 
   void setId(char *id);
 

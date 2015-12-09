@@ -61,7 +61,7 @@ void SeederJob::run() {
         if(_terminationRequest()) {
           break;
         }
-        request = handlerSocket->recvMessageTimeout(10, 0);
+        request = handlerSocket->recvMessageTimeout(30, 0);
       } catch (ReceiveTimeoutException &timeout) {
         clientTerminated = true;
       }

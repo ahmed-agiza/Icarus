@@ -241,6 +241,50 @@ int Crypto::base64Decode(char *msg, size_t messageLength, unsigned char *decoded
 	return 0;
 }
 
+int Crypto::sign(RSA* rrsaPrivateKey, const char* msg, char* encrypted) {
+    int encryptLen;
+    char *err = (char *)malloc(130);
+    if((encryptLen = RSA_private_encrypt(strlen(msg) + 1, (unsigned char*)msg,
+        (unsigned char*)encrypted, rrsaPrivateKey, RSA_PKCS1_PADDING)) == -1) {
+        ERR_load_crypto_strings();
+        ERR_error_string(ERR_get_error(), err);
+        fprintf(stderr, "Error encrypting message: %s\n", err);
+        return -3;
+    }
+    free(err);
+    return encryptLen;
+}
+
+int Crypto::sign(char* rsaPrivateKey, const char* msg, char* encrypted) {
+  RSA *privateKey = NULL;
+  BIO *privateKeyBio = BIO_new_mem_buf(rsaPrivateKey, -1);
+  privateKey = PEM_read_bio_RSAPrivateKey(privateKeyBio, NULL, NULL, NULL);
+  BIO_free(privateKeyBio);
+  return sign(privateKey, msg, encrypted);
+}
+
+
+
+int Crypto::unsign(RSA* rsaPublicKey, const char* msg, char* decrypted) {
+    char *err = (char *)malloc(130);
+    if(RSA_public_decrypt(RSA_size(rsaPublicKey), (unsigned char*)msg, (unsigned char*)decrypted,
+        rsaPublicKey, RSA_PKCS1_PADDING) == -1) {
+        ERR_load_crypto_strings();
+        ERR_error_string(ERR_get_error(), err);
+        //fprintf(stderr, "Error decrypting message: %s\n", err);
+    }
+    free(err);
+    return 0;
+}
+
+int Crypto::unsign(char* rsaPublicKey, const char* msg, char* decrypted) {
+  RSA *publicKey = NULL;
+  BIO *publicKeyBio = BIO_new_mem_buf(rsaPublicKey, -1);
+  publicKey = PEM_read_bio_RSAPublicKey(publicKeyBio, &publicKey, NULL, NULL);
+  BIO_free(publicKeyBio);
+  return unsign(publicKey, msg, decrypted);
+}
+
 void Crypto::generateRandomString(char *buf, int length) {
   static char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   if (length) {
@@ -265,8 +309,38 @@ int Crypto::md5Hash(char *msg, char *hash) {
   int charCount = 0;
 
   for(int i = 0; i < MD5_DIGEST_LENGTH; i++) {
-    charCount = sprintf(hash, "%s%02x", hash, c[i]);
+    charCount += sprintf(hash, "%s%02x", hash, c[i]);
   }
+
+  return charCount;
+}
+
+int Crypto::md5HashFile(char *filename, char *hash) {
+  unsigned char c[MD5_DIGEST_LENGTH];
+  memset(hash, 0, MD5_DIGEST_LENGTH);
+
+  FILE *inFile = fopen (filename, "rb");
+  MD5_CTX mdContext;
+  int bytes;
+  unsigned char data[1024];
+
+  if (inFile == NULL) {
+    throw FileOpenException();
+  }
+
+  MD5_Init (&mdContext);
+  while ((bytes = fread (data, 1, 1024, inFile)) != 0)
+    MD5_Update (&mdContext, data, bytes);
+
+  MD5_Final (c, &mdContext);
+
+  int charCount = 0;
+
+  for(int i = 0; i < MD5_DIGEST_LENGTH; i++) {
+    charCount += sprintf(hash, "%s%02x", hash, c[i]);
+  }
+
+  fclose (inFile);
 
   return charCount;
 }

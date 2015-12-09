@@ -34,7 +34,7 @@ int main(int argc, char const *argv[]) {
   char results[MAX_READ_SIZE];
   try {
 
-    HeartBeat *heartBeat = new HeartBeat("ahmed", argv[1], 9999);
+    HeartBeat *heartBeat = new HeartBeat("ahmed", argv[1], 9999, 0);
     printf("%d\n", heartBeat->start());
     while(1) {
       printf("Input: ");
@@ -65,7 +65,7 @@ int main(int argc, char const *argv[]) {
 #elif defined(TEST_CLIENT)
   printf("Client!\n");
   try {
-    Client *client = new Client("ahmed", argv[1], 9999);
+    Client *client = new Client("ahmed", argv[1], 9999, 0);
     int clientRC = client->start();
     client->wait();
     char terminationMessage[LOG_MESSAGE_LENGTH];

@@ -1,56 +1,46 @@
 #ifndef HEARTBEAT_H
 #define HEARTBEAT_H
 
-#include "thread.h"
+#include "client.h"
 #include "udp_socket.h"
 #include "file.h"
 #include "crypto.h"
 #include "seeder_node.h"
 
 enum ConnectionState {
-  Connected = 0,
-  Disconnected = 1
+  Connecting = 0,
+  Connected = 1,
+  Disconnected = 2
 };
 
-enum Operation {
-  Pinging = 0,
-  Querying = 1
-};
+#define PINGING_TIME 3
 
-enum State {
-  Steady = 0,
-  Fetching = 1,
-  Ready = 2
-};
 
-class HeartBeat : public Thread {
-  UDPSocket * _clientSocket;
-  uint16_t _port;
-  char _hostname[128];
-  char _username[128];
-  Message _getReply();
-  Message _getReplyTimeout(time_t seconds = 0, suseconds_t mseconds = 0);
-  void _establishConnection(); //connect to server
-  ssize_t _sendMessage(Message message);
+class HeartBeat : public Client {
   ConnectionState _state;
-  char _publicRSA[2048];
-  char _privateRSA[2048];
-  char _id[128];
-  char _results[MAX_READ_SIZE];
-  Operation _currentOperation;
-  State _resultState;
-  pthread_mutex_t _operationLock;
-  pthread_mutex_t _fetchingCvLock;
-  pthread_cond_t _fetchingCv;
+
+  pthread_condattr_t _timerAttr;
+  pthread_cond_t _timerCv;
+  pthread_mutex_t _timerMutex;
+
+  timespec _pingTime;
+
+  void _waitTimer(long waitVal);
+  void _wakeTimer();
+
 public:
-  HeartBeat(const char *username, const char *hostname, uint16_t port);
+  HeartBeat(const char *username, const char *hostname, uint16_t port, uint16_t serverPort);
   void run();
   bool reset();
   void stop();
 
+  void queryUsername(char *username);
+  void queryId(char *id);
   void queryOnline();
-  void fetchResults(char *buf);
+  void queryRecent();
 
+  bool isConnected() const;
+  bool isConnecting() const;
 
   //Message * execute(Message * _message);
   ~HeartBeat();
