@@ -2,7 +2,7 @@
 #include <iostream>
 using namespace std;
 Server::Server(uint16_t listenPort):_listenPort(listenPort), _terminated(false), _jobCount(0) {
-  _jobsPool.initialize(Settings::getInstance().getPoolSize(), true);
+  _jobsPool.initialize(Settings::getInstance().getPoolSize(), Settings::getInstance().getAutoCreate());
 
   if (!File::exists(PUBLIC_KEY_PATH) || !File::exists(PRIVATE_KEY_PATH)) {
     Crypto::generateKeyPair(PRIVATE_KEY_PATH, PUBLIC_KEY_PATH);

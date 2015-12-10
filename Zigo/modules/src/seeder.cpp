@@ -1,7 +1,7 @@
 #include "seeder.h"
 
 Seeder::Seeder(uint16_t listenPort):_listenPort(listenPort), _jobCount(0) {
-  _jobsPool.initialize(Settings::getInstance().getPoolSize(), true);
+  _jobsPool.initialize(Settings::getInstance().getPoolSize(), Settings::getInstance().getAutoCreate());
 
   _seederSocket = new UDPSocket;
   _seederSocket->initialize(listenPort);

@@ -30,6 +30,16 @@ MainWindow::MainWindow(uint16_t serverPort, char *seederIp, uint16_t seederPort,
         ui->stackedWidget->setCurrentIndex(1);
     else
         ui->stackedWidget->setCurrentIndex(0);
+
+    if(!File::exists("../config")) {
+        File *file = File::open("../config", O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+        const char *defaultSettings ="RETRY_TIMES=2\nCLIENT_REPLY_TIMEOUT=7\nLOG_INFO_PATH=../log/info.log\nLOG_ERROR_PATH=../log/error.log\nLOG_LVL=0\nSERVER_REPLY_TIMEOUT=7\nTHREAD_POOL_SIZE=30\nCLIENT_CACHE=20\nAUTO_CREAT_THREADS=1\nSTORAGE_DIR=storage\nBUFFER_DIR=buffer";
+        file->write(defaultSettings, strlen(defaultSettings));
+        file->close();
+    }
+
+    QSettings settings("CSCE-485", "Zigo", this);
+    ui->txtUsrName->setText(settings.value("USERNAME", QString("")).toString());
     ui->btnBack->setVisible(false);
     ui->btnNewImg->setVisible(false);
     _serverPort = serverPort;
@@ -195,6 +205,8 @@ void MainWindow::on_btnConnect_clicked()
         return;
     }
 
+    QSettings settings("CSCE-485", "Zigo", this);
+    settings.setValue("USERNAME", ui->txtUsrName->text());
 
     ui->stackedWidget->setCurrentIndex(1);
 
@@ -338,7 +350,7 @@ void MainWindow::on_btnSendImg2_clicked() {
         qDebug() << "PeerID: " << peer.getId();
         qDebug() << "Hash: " << originalHash;
 
-        int rc = Steganography::encryptImage(userFilePath, pathData, coverFile, originalHash, extraData, "12345");
+        int rc = Steganography::encryptImage(userFilePath, pathData, coverFile, originalHash, extraData, _peerSteg.toLocal8Bit().data());
         if(rc) {
             QMessageBox::critical(this, "Error", "Failed to encrypt the selected file.");
             return;
@@ -865,7 +877,7 @@ int MainWindow::_getTotalViews(QString sender, QString id, const char *prefix, c
     strcpy(imagePath, imageDir);
     strcat(imagePath, prefix);
     strcat(imagePath, "/");
-    strcat(imageName, _appId);
+    strcat(imageName, sender.toLocal8Bit().data());
     strcat(imageName, "-");
     strcat(imageName, buf1);
     strcat(imagePath, imageName);
